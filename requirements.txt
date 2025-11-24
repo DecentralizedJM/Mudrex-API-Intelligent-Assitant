@@ -7,6 +7,10 @@ numpy>=1.26.0
 # Simple vector storage (alternative to ChromaDB for Python 3.14)
 scikit-learn>=1.3.0
 
+# Web scraping for documentation fetching
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+
 # Optional but recommended
 fastapi==0.115.6
 uvicorn==0.34.0

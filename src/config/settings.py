@@ -13,12 +13,14 @@ load_dotenv()
 class Config:
     """Application configuration"""
     
-    # Telegram Bot
+    # Required fields (no defaults)
     TELEGRAM_BOT_TOKEN: str
+    GEMINI_API_KEY: str
+    
+    # Optional fields (with defaults)
     ALLOWED_CHAT_IDS: Optional[list[int]] = None  # None = all chats allowed
     
     # Gemini AI
-    GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-3-pro-preview"
     GEMINI_TEMPERATURE: float = 0.3
     GEMINI_MAX_TOKENS: int = 1024

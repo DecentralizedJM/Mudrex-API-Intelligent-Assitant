@@ -58,71 +58,49 @@ class MudrexBot:
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
-        welcome_message = """
-👋 Hey! I'm your Mudrex API coding assistant - part of the team that built this API!
+        welcome_message = """I'm here to help with the Mudrex API.
 
-*What I do:*
-🔧 Review & fix your code
-💡 Answer API questions
-📝 Provide working code examples
-🐛 Debug errors with you
-⚡ Suggest best practices
+*I can help you with:*
+• API integration and authentication
+• Code review and debugging
+• Working code examples
+• Best practices
 
-*How to use me:*
-• Ask API questions directly
-• Share code - I'll review and improve it
-• Tag me with @Mudrex_API_bot anytime
-• I silently ignore casual chat
-
-Let's build something awesome! 🚀
-"""
+Ask me anything about the Mudrex API or share code for review."""
         await update.message.reply_text(welcome_message, parse_mode='Markdown')
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
-        help_message = """
-*Commands:*
-/start - Welcome & intro
-/help - This message
+        help_message = """*Commands:*
+/start - Welcome message
+/help - This help
 /stats - Bot info
 
-*What I help with:*
-🔧 Code review & corrections
-💡 API integration questions
-📝 Working code examples
-🐛 Error debugging
-⚡ Best practices & tips
+*I help with:*
+• API authentication and integration
+• Code debugging and fixes
+• Working examples in Python/JavaScript
+• Best practices
 
-*Example requests:*
-• "How do I create an order?"
-• "Fix this code: ```python...```"
-• "What's wrong with my authentication?"
-• "Show me async order placement"
+*Example questions:*
+"How do I authenticate?"
+"Fix this code: ```python...```"
+"Show me how to place an order"
 
-*Pro tips:*
-• Share your code - I'll review it
-• Ask specific questions for better answers
-• Mention me with @ in groups
-• I skip non-API chat automatically
-
-Let's code! 🚀
-"""
+Tag me with @ in groups or just send your question."""
         await update.message.reply_text(help_message, parse_mode='Markdown')
     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command"""
         stats = self.rag_pipeline.get_stats()
         
-        stats_message = f"""
-*Bot Stats* 📊
+        stats_message = f"""*Bot Stats*
 
-🤖 AI Model: {stats['model']}
-📚 Docs Loaded: {stats['total_documents']} chunks
-💡 Capabilities: Code review, debugging, examples
-⚡ Status: Online & ready!
+AI Model: {stats['model']}
+Docs Loaded: {stats['total_documents']} chunks
+Status: Online
 
-Built by the Mudrex API team 🚀
-"""
+Helping developers integrate the Mudrex API."""
         await update.message.reply_text(stats_message, parse_mode='Markdown')
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -151,20 +129,16 @@ Built by the Mudrex API team 🚀
         
         logger.info(f"Message from {user_name}: {user_message[:50]}, mentioned={bot_mentioned}")
         
-        # Check if message is API-related (only if not mentioned)
-        if not bot_mentioned:
+        # If bot is mentioned, ALWAYS respond - even if unclear, ask for clarification
+        if bot_mentioned:
+            # Let all messages through when tagged
+            pass
+        else:
+            # Check if message is API-related when not mentioned
             is_api_related = self.rag_pipeline.gemini_client.is_api_related_query(user_message)
             if not is_api_related:
                 logger.info(f"Silently ignoring non-API message: {user_message[:50]}")
                 return  # Silently ignore non-API messages
-        
-        # If mentioned with a greeting, respond warmly and invite engagement
-        if bot_mentioned:
-            lower_msg = user_message.lower().strip()
-            # Check for simple greetings
-            if lower_msg in ['hi', 'hello', 'hey', 'sup', 'yo', 'ok', 'okay', 'cool', 'thanks', 'thank you']:
-                # Don't block - let it go through to Gemini for a friendly response
-                pass  # Continue to RAG pipeline
         
         # Show typing indicator
         await update.message.chat.send_action("typing")

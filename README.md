@@ -1,8 +1,8 @@
 # Mudrex API Intelligent Assistant 🤖
 
-An intelligent Telegram bot that answers Mudrex API questions using RAG (Retrieval-Augmented Generation) with Google Gemini 2.5 Flash. The bot speaks like a confident Mudrex developer intern with deep API knowledge, providing helpful answers in a friendly, approachable manner.
+A focused, concise Telegram bot for Mudrex API support using RAG (Retrieval-Augmented Generation) with Google Gemini 2.5 Flash. The bot provides brief, helpful answers about API integration, authentication, orders, and debugging.
 
-**Bot:** [@Mudrex_API_bot](https://t.me/Mudrex_API_bot)  
+**Bot:** [@API_Assistant_V2_bot](https://t.me/API_Assistant_V2_bot)  
 **Author:** [DecentralizedJM](https://github.com/DecentralizedJM)  
 **License:** MIT (with attribution required)  
 **Copyright:** © 2025 DecentralizedJM
@@ -11,13 +11,33 @@ An intelligent Telegram bot that answers Mudrex API questions using RAG (Retriev
 
 ## Features
 
-- 🤖 **Smart Query Detection**: Automatically identifies API-related questions and silently ignores casual chat
-- 📚 **RAG-Powered Responses**: Uses vector search across Mudrex API documentation for accurate answers
-- � **@Mention Support**: Responds to all @mentions and asks for clarification when needed
-- 🎯 **Confident Personality**: Speaks like a skilled Mudrex intern who knows the API inside-out
-- ⚡ **Fast & Accurate**: Powered by Gemini 2.5 Flash with 2048 token responses
+- 🎯 **Focused on API**: Only responds to API-related questions, avoids casual chitchat
+- 📏 **Concise Responses**: Brief, to-the-point answers (2-4 sentences for simple questions)
+- 💬 **Always Responds When Tagged**: If @mentioned, always engages - asks clarifying questions if needed
+- 📚 **RAG-Powered**: Vector search across Mudrex API documentation for accurate answers
+- 🤝 **Humble & Helpful**: Natural, conversational tone without unnecessary bragging or formatting
+- ⚡ **Fast**: Powered by Gemini 2.5 Flash with optimized prompts
 - 🔐 **Secure**: Optional chat ID restrictions for controlled access
-- 📖 **Auto-Documentation Fetch**: Automatically pulls latest docs from https://docs.trade.mudrex.com
+- 📖 **Auto-Documentation**: Pulls latest docs from https://docs.trade.mudrex.com
+- 🛡️ **Critical Guardrails**: Never says Mudrex is "not an exchange", escalates tough questions to @DecentralizedJM
+
+## Bot Behavior
+
+### ✅ Responds To:
+- **API Questions**: "How do I authenticate?", "What's the order endpoint?"
+- **Code Review**: Share code with errors, get fixes and explanations
+- **Debugging**: "Getting 401 error", "Order placement failing"
+- **@Mentions**: Always responds when tagged, asks follow-ups if unclear
+
+### ❌ Ignores:
+- **Casual Chat**: "hello", "how are you", "nice weather"
+- **Non-API Topics**: General conversation, unrelated questions
+
+### 💡 Response Style:
+- **Brief**: 2-4 sentences for simple questions
+- **Natural**: Conversational paragraphs, not excessive bullet points
+- **Helpful**: Code examples when relevant, always brief
+- **Humble**: No bragging about IQ or being "part of the team"
 
 ## Architecture
 
@@ -32,6 +52,7 @@ An intelligent Telegram bot that answers Mudrex API questions using RAG (Retriev
 │  Telegram Bot   │
 │   (Handler)     │  ✓ Silent filtering
 │                 │  ✓ @mention detection
+│                 │  ✓ Always respond when tagged
 └──────┬──────────┘
        │
        ▼
@@ -45,15 +66,16 @@ An intelligent Telegram bot that answers Mudrex API questions using RAG (Retriev
        ▼
 ┌─────────────────┐
 │  Gemini 2.5     │
-│  Flash API      │  ✓ 2048 max tokens
-│                 │  ✓ Confident persona
+│  Flash API      │  ✓ Concise responses
+│                 │  ✓ Humble persona
+│                 │  ✓ Critical guardrails
 └─────────────────┘
 ```
 
 ## Tech Stack
 
 - **Python 3.14** - Latest Python runtime
-- **python-telegram-bot** - Async Telegram integration
+- **python-telegram-bot 21.0** - Async Telegram integration
 - **Scikit-learn** - Vector similarity search with cosine distance
 - **Google Gemini 2.5 Flash** - Fast, efficient LLM with extended context
 - **BeautifulSoup4** - Documentation auto-fetching from web
@@ -136,37 +158,29 @@ Bot is now running. Press Ctrl+C to stop.
 - `/help` - Show usage tips and features
 - `/stats` - Display bot statistics (documents loaded, model info)
 
-### Bot Behavior
-
-**✅ Responds to:**
-- Direct API questions: "How do I create an order?"
-- Error troubleshooting: "Getting 401 error"
-- @Mentions: "@Mudrex_API_bot how to authenticate?"
-
-**❌ Silently ignores:**
-- Casual chat: "hello", "how are you", "I made profit today"
-- Non-API discussions
-
-**💬 Asks for clarification when:**
-- @Mentioned but message is vague: "@Mudrex_API_bot hi"
-
 ### Example Interactions
 
 ```
 User: How do I authenticate with the Mudrex API?
-Bot: Hey! For authentication, you'll need to use API keys. Here's how...
+Bot: Use the X-Authentication header with your API secret. Here's a quick example:
+     [code snippet]
+     Keep your API secret secure and never commit it to code.
 
-User: What's the endpoint for placing orders?
-Bot: The order placement endpoint is POST /v1/orders. Let me break down...
-
-User: I got profit today! 🚀
+User: hello
 Bot: [silently ignores - not API-related]
 
-User: @Mudrex_API_bot what are webhooks?
-Bot: Webhooks let you receive real-time updates from Mudrex...
+User: I want to start API trading. How
+Bot: Create API keys from your Mudrex dashboard, then use the authentication header 
+     in your requests. Check the docs at docs.trade.mudrex.com for full setup steps.
 
-User: @Mudrex_API_bot hi
-Bot: Hey! I'm here to help with Mudrex API questions. What would you like to know?
+User: @API_Assistant_V2_bot hi
+Bot: I'm here to help with the Mudrex API. What would you like to know?
+
+User: @API_Assistant_V2_bot unclear question
+Bot: What specifically would you like help with regarding the Mudrex API?
+
+User: Is Mudrex using Bybit API keys?
+Bot: [Redirects] Let me get @DecentralizedJM to provide more details on this.
 ```
 
 ## Configuration Options
@@ -197,7 +211,7 @@ mudrex-api-bot/
 │   ├── rag/
 │   │   ├── pipeline.py          # RAG orchestration
 │   │   ├── vector_store.py      # sklearn-based vector search
-│   │   ├── gemini_client.py     # Gemini API client with persona
+│   │   ├── gemini_client.py     # Gemini API client with concise persona
 │   │   └── __init__.py
 │   ├── config/
 │   │   ├── settings.py          # Configuration management
@@ -238,17 +252,27 @@ python main.py
 Edit `src/rag/gemini_client.py` to modify the system prompt:
 
 ```python
-# Current persona: Confident Mudrex intern with IQ 200
-# Modify the prompt in generate_response() method
+# Current persona: Helpful, concise, humble API assistant
+# Modify the system_instruction in _create_prompt() method
 ```
 
-### Changing LLM Provider
+Key personality traits (defined in system prompt):
+- **Stay Focused**: Only API-related questions
+- **Be Concise**: 2-4 sentences for simple answers
+- **Be Humble**: No bragging or unnecessary formatting
+- **Always Respond When Tagged**: Engage even if unclear, ask follow-ups
+- **Write Naturally**: Conversational paragraphs, not excessive bullets
 
-To use OpenAI/Claude instead of Gemini:
+### Critical Guardrails (Hard-coded)
 
-1. Update `src/rag/gemini_client.py` 
-2. Replace Gemini API calls with your provider
-3. Update environment variables in `.env`
+The bot has strict rules to protect Mudrex's brand:
+
+- ⛔ **Never say** Mudrex is "not an exchange" or "wrapper around exchanges"
+- 🚨 **Escalate** tough/confrontational questions to @DecentralizedJM
+- 🚫 **Never mention** competitor exchanges (Binance, Bybit, etc.)
+- ✅ **Position** Mudrex as full-featured exchange with FIU regulation
+
+These are defined in `src/rag/gemini_client.py` system prompt.
 
 ### Testing
 
@@ -275,71 +299,75 @@ python main.py
 # Ctrl+A, D to detach
 ```
 
-### Docker (Optional)
-
-```dockerfile
-# Dockerfile included in repo
-docker build -t mudrex-api-bot .
-docker run -d --env-file .env mudrex-api-bot
-```
-
 ### Production Best Practices
 
 - ✅ Set `ALLOWED_CHAT_IDS` to restrict access to authorized users
 - ✅ Monitor logs: `tail -f bot.log`
 - ✅ Set up log rotation for `bot.log`
 - ✅ Regularly update documentation via re-ingestion
-- ✅ Consider using Telegram webhooks for better scalability
 - ✅ Keep API keys secure and rotate regularly
+- ✅ Only one bot instance per token (Telegram limitation)
 
 ## Troubleshooting
 
 ### Bot doesn't respond to messages
 - ✅ Check `TELEGRAM_BOT_TOKEN` is correct
-- ✅ Verify no other bot instances are running: `ps aux | grep python.*main.py`
-- ✅ Check chat ID isn't in restricted list (`ALLOWED_CHAT_IDS`)
-- ✅ Look for errors in `bot.log`
+- ✅ Verify message is API-related or bot is @mentioned
+- ✅ Look for "Silently ignoring non-API message" in logs
+- ✅ Try @mentioning: `@API_Assistant_V2_bot your question`
 
 ### "Conflict: terminated by other getUpdates request"
 - Multiple bot instances are running
-- Kill all instances: `pkill -9 -f "python.*main.py"`
+- Kill all instances: `pkill -9 python`
 - Wait 5-10 seconds before restarting
+- Or create a new bot with new token via @BotFather
 
-### Bot silently ignores API questions
-- Check if question contains API keywords (authentication, endpoint, error, etc.)
-- Try @mentioning the bot: `@Mudrex_API_bot your question`
-- Check `AUTO_DETECT_QUERIES` is set to `true` in `.env`
+### Bot gives long responses
+- This was fixed in latest version (commit e2e2fbb)
+- System prompt emphasizes brevity: "2-4 sentences for simple questions"
+- Responses are concise and natural paragraphs, not excessive bullets
 
-### Poor answer quality
-- ✅ Increase `TOP_K_RESULTS` to retrieve more context (try 7-10)
-- ✅ Lower `SIMILARITY_THRESHOLD` for broader matching (try 0.4-0.5)
-- ✅ Re-fetch documentation: `python scripts/ingest_docs.py`
-- ✅ Increase `GEMINI_MAX_TOKENS` for longer responses (max 8192)
+### Bot responds to casual chat
+- Fixed in latest version - ignores "hello", "hi", etc. unless @mentioned
+- Check logs for "Silently ignoring non-API message"
+- API keywords required: api, endpoint, authentication, order, error, etc.
 
-### Import/dependency errors
-- ✅ Ensure virtual environment is activated: `source venv/bin/activate`
-- ✅ Reinstall dependencies: `pip install -r requirements.txt --force-reinstall`
-- ✅ Check Python version: `python --version` (need 3.10+)
+### Bot doesn't respond when @mentioned
+- This should always work - check logs for errors
+- System rule: "When tagged, ALWAYS respond"
+- If unclear, bot asks follow-up questions
 
-### Vector store shows 0 documents
-- Run ingestion script: `python scripts/ingest_docs.py`
-- Check `data/chroma/vectors.pkl` exists
-- Verify working directory is project root when running bot
+## Recent Updates (Nov 2025)
+
+**v2.0 - Concise & Focused Release**
+- ✅ Made responses much more concise (2-4 sentences)
+- ✅ Removed excessive bullet points and formatting
+- ✅ Humble personality - no bragging about IQ or team membership
+- ✅ Always responds when @mentioned, asks follow-ups if needed
+- ✅ Avoids casual chitchat - focused on API help only
+- ✅ Natural conversational tone, not corporate or robotic
+- ✅ Maintained critical guardrails (never say "not an exchange")
+
+**Commits:**
+- `e2e2fbb`: Concise, focused, humble bot behavior
+- `c74f6c5`: Allow greetings when @mentioned
+- `c938fc2`: Improved error messages
+- `f161515`: Added critical guardrails and USPs
+- `2dbd141`: Code correction feature
 
 ## Features Roadmap
 
 - [x] RAG-based question answering
 - [x] Gemini 2.5 Flash integration
 - [x] Silent non-API message filtering
-- [x] @Mention detection and handling
+- [x] @Mention detection and always-respond
 - [x] Auto-documentation fetching
-- [x] Confident developer persona
+- [x] Concise, humble responses
+- [x] Code review and debugging help
+- [x] Critical brand guardrails
 - [ ] Multi-language support
-- [ ] Webhook mode for production
 - [ ] Conversation history tracking
-- [ ] Admin commands for bot management
 - [ ] Analytics dashboard
-- [ ] Docker deployment
 
 ## Contributing
 
@@ -364,7 +392,7 @@ This is original work. While open-source under MIT, proper attribution is requir
 - 🐛 **Issues:** [GitHub Issues](https://github.com/DecentralizedJM/Mudrex-API-Intelligent-Assitant-/issues)
 - 📧 **Contact:** Open an issue for questions or support
 - 📝 **Logs:** Check `bot.log` for debugging
-- 🤖 **Live Bot:** [@Mudrex_API_bot](https://t.me/Mudrex_API_bot) on Telegram
+- 🤖 **Live Bot:** [@API_Assistant_V2_bot](https://t.me/API_Assistant_V2_bot) on Telegram
 
 ---
 

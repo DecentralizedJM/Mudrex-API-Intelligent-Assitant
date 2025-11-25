@@ -59,42 +59,53 @@ class MudrexBot:
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         welcome_message = """
-Hey! 👋 I'm here to help you with Mudrex API integration.
+👋 Hey! I'm your Mudrex API coding assistant - part of the team that built this API!
 
-*What I can help with:*
-• API authentication & headers
-• Endpoint usage and parameters
-• Request/response formats
-• Error troubleshooting
-• Code examples
+*What I do:*
+🔧 Review & fix your code
+💡 Answer API questions
+📝 Provide working code examples
+🐛 Debug errors with you
+⚡ Suggest best practices
 
-Just ask me anything about the Mudrex API - I'll keep it simple and practical.
+*How to use me:*
+• Ask API questions directly
+• Share code - I'll review and improve it
+• Tag me with @Mudrex_API_bot anytime
+• I silently ignore casual chat
 
-Need help? Just mention me with @Mudrex_API_bot or reply to this message!
+Let's build something awesome! 🚀
 """
         await update.message.reply_text(welcome_message, parse_mode='Markdown')
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
         help_message = """
-*Available Commands:*
+*Commands:*
+/start - Welcome & intro
+/help - This message
+/stats - Bot info
 
-/start - Welcome message
-/help - This help message
-/stats - Bot statistics
+*What I help with:*
+🔧 Code review & corrections
+💡 API integration questions
+📝 Working code examples
+🐛 Error debugging
+⚡ Best practices & tips
 
-*How to use me:*
-• Just ask your API question directly
+*Example requests:*
+• "How do I create an order?"
+• "Fix this code: ```python...```"
+• "What's wrong with my authentication?"
+• "Show me async order placement"
+
+*Pro tips:*
+• Share your code - I'll review it
+• Ask specific questions for better answers
 • Mention me with @ in groups
-• I'll silently ignore non-API messages
+• I skip non-API chat automatically
 
-*Example questions:*
-• "How do I authenticate?"
-• "What headers does the Futures API need?"
-• "Show me how to create an order"
-• "Rate limit handling?"
-
-Keep it simple - I'm here to help! 🚀
+Let's code! 🚀
 """
         await update.message.reply_text(help_message, parse_mode='Markdown')
     
@@ -105,11 +116,12 @@ Keep it simple - I'm here to help! 🚀
         stats_message = f"""
 *Bot Stats* 📊
 
-Documents loaded: {stats['total_documents']}
-AI Model: {stats['model']}
-Status: ✓ Online
+🤖 AI Model: {stats['model']}
+📚 Docs Loaded: {stats['total_documents']} chunks
+💡 Capabilities: Code review, debugging, examples
+⚡ Status: Online & ready!
 
-Ready to help with your API questions!
+Built by the Mudrex API team 🚀
 """
         await update.message.reply_text(stats_message, parse_mode='Markdown')
     

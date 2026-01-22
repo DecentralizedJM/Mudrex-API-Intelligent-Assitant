@@ -21,5 +21,9 @@ COPY . .
 # Create data directory for vector store
 RUN mkdir -p data/chroma
 
-# Run the bot
-CMD ["python3", "main.py"]
+# Copy startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Run the bot (startup script will auto-ingest docs if needed)
+CMD ["/app/start.sh"]

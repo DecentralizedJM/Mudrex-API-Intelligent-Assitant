@@ -116,5 +116,5 @@ class RAGPipeline:
         """Get pipeline statistics"""
         return {
             'total_documents': self.vector_store.get_count(),
-            'model': self.gemini_client.model.model_name
+            'model': self.gemini_client.model_name
         }

@@ -1,0 +1,25 @@
+# Railway ignore file
+# Ignore files that shouldn't be in deployment
+
+# Documentation files (not needed in production)
+*.md
+!README.md
+
+# Test files
+test_*.py
+*_test.py
+
+# Development files
+.env
+.env.local
+.git
+.gitignore
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+
+# Temporary files
+tmp/
+temp/

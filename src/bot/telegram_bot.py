@@ -25,7 +25,7 @@ from telegram.constants import ParseMode, ChatAction, ChatType
 from ..config import config
 from ..rag import RAGPipeline
 from ..mcp import MudrexMCPClient, MudrexTools
-from ..tasks.futures_listing_watcher import _extract_symbols
+from ..tasks.futures_listing_watcher import fetch_all_futures_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,7 @@ class MudrexBot:
         self.app.add_handler(CommandHandler("tools", self.cmd_tools, filters.ChatType.GROUPS))
         self.app.add_handler(CommandHandler("mcp", self.cmd_mcp, filters.ChatType.GROUPS))
         self.app.add_handler(CommandHandler("listfutures", self.cmd_listfutures, filters.ChatType.GROUPS))
+        self.app.add_handler(CommandHandler("futures", self.cmd_listfutures, filters.ChatType.GROUPS))  # alias
         self.app.add_handler(CommandHandler("endpoints", self.cmd_endpoints, filters.ChatType.GROUPS))
         
         # Admin Commands (Work in Groups & DM for admins ideally, but keeping group-only filter for consistency unless DM needed)
@@ -308,10 +309,10 @@ _AI co-pilot for the Mudrex API_"""
         await update.message.reply_text(stats_text, parse_mode=ParseMode.MARKDOWN)
     
     async def cmd_tools(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /tools command — MCP server tools list"""
+        """Handle /tools command — MCP server tools list. Plain text to avoid Telegram Markdown parse errors."""
         tools_text = MudrexTools.get_tools_summary()
-        tools_text += "\n\n_For personal account data, use Claude Desktop with MCP._\n/mcp — MCP setup"
-        await update.message.reply_text(tools_text, parse_mode=ParseMode.MARKDOWN)
+        tools_text += "\n\nFor personal account data, use Claude Desktop with MCP.\n/mcp — MCP setup"
+        await update.message.reply_text(tools_text)
     
     async def cmd_mcp(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /mcp command"""
@@ -357,54 +358,48 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
             )
             return
         
-        result = await self.mcp_client.call_tool('list_futures')
-        
-        if result.get('success'):
-            n = len(_extract_symbols(result.get('data')))
-            await update.message.reply_text(
-                f"There are **{n}** futures pairs listed. To see the full list, use the `list_futures` MCP tool "
-                "or the futures API at docs.trade.mudrex.com.",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        else:
-            await update.message.reply_text(
-                f"Couldn't fetch contracts list. {result.get('message', 'Unknown error')}\n\n"
-                "This is a community bot for general API help."
-            )
+        symbols = await fetch_all_futures_symbols(self.mcp_client)
+        n = len(symbols)
+        await update.message.reply_text(
+            f"There are **{n}** futures pairs listed. To see the full list, use the `list_futures` MCP tool "
+            "or the futures API at docs.trade.mudrex.com.",
+            parse_mode=ParseMode.MARKDOWN
+        )
 
-    # Static list of Mudrex API endpoint names (no pathways)
-    _API_ENDPOINT_NAMES = [
-        "Get spot funds",
-        "Transfer funds (spot ↔ futures)",
-        "Get futures funds",
-        "Get asset listing",
-        "Get asset by id",
-        "Get leverage",
-        "Set leverage",
-        "Place order",
-        "Get open orders",
-        "Get order by id",
-        "Amend order",
-        "Cancel order",
-        "Get order history",
-        "Get open positions",
-        "Get liquidation price",
-        "Add margin",
-        "Place risk order",
-        "Amend risk order",
-        "Reverse position",
-        "Partial close position",
-        "Close position",
-        "Get position history",
-        "Get fee history",
+    # (name, method, path, doc_slug) — doc_slug → https://docs.trade.mudrex.com/docs/{slug}
+    _API_ENDPOINTS = [
+        ("Get spot funds", "GET", "/fapi/v1/wallet/funds", "get-spot-funds"),
+        ("Transfer funds (spot ↔ futures)", "POST", "/fapi/v1/wallet/futures/transfer", "post-transfer-funds"),
+        ("Get futures funds", "GET", "/fapi/v1/futures/funds", "get-available-funds-futures"),
+        ("Get asset listing", "GET", "/fapi/v1/futures", "get-asset-listing"),
+        ("Get asset by id", "GET", "/fapi/v1/futures/:asset_id", "get"),
+        ("Get leverage", "GET", "/fapi/v1/futures/:asset_id/leverage", "get-leverage-by-asset-id"),
+        ("Set leverage", "POST", "/fapi/v1/futures/:asset_id/leverage", "set"),
+        ("Place order", "POST", "/fapi/v1/futures/:asset_id/order", "post-market-order"),
+        ("Get open orders", "GET", "/fapi/v1/futures/orders", "get-open-orders"),
+        ("Get order by id", "GET", "/fapi/v1/futures/orders/:order_id", "get-order-by-id"),
+        ("Amend order", "PATCH", "/fapi/v1/futures/orders/:order_id", "orders"),
+        ("Cancel order", "DELETE", "/fapi/v1/futures/orders/:order_id", "delete-order"),
+        ("Get order history", "GET", "/fapi/v1/futures/orders/history", "get-order-history"),
+        ("Get open positions", "GET", "/fapi/v1/futures/positions", "get-open-positions"),
+        ("Get liquidation price", "GET", "/fapi/v1/futures/positions/:position_id/liq-price", "get-liquidation-price"),
+        ("Add margin", "POST", "/fapi/v1/futures/positions/:position_id/add-margin", "add-margin"),
+        ("Place risk order", "POST", "/fapi/v1/futures/positions/:position_id/riskorder", "set-sl-tp"),
+        ("Amend risk order", "PATCH", "/fapi/v1/futures/positions/:position_id/riskorder", "edit-sl-tp"),
+        ("Reverse position", "POST", "/fapi/v1/futures/positions/:position_id/reverse", "reverse"),
+        ("Partial close position", "POST", "/fapi/v1/futures/positions/:position_id/close/partial", "partial-close"),
+        ("Close position", "POST", "/fapi/v1/futures/positions/:position_id/close", "square-off"),
+        ("Get position history", "GET", "/fapi/v1/futures/positions/history", "get-position-history"),
+        ("Get fee history", "GET", "/fapi/v1/futures/fee/history", "fees"),
     ]
 
     async def cmd_endpoints(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /endpoints command — API endpoint names only, no pathways"""
-        lines = ["*Mudrex API — Endpoints (names only)*\n"]
-        for name in self._API_ENDPOINT_NAMES:
-            lines.append(f"• {name}")
-        lines.append("\n_For paths and usage: docs.trade.mudrex.com_")
+        """Handle /endpoints — paths and doc links"""
+        base = "https://docs.trade.mudrex.com/docs"
+        lines = ["*Mudrex API — Endpoints*\n_Base: https://trade.mudrex.com_ · Auth: X-Authentication\n"]
+        for name, method, path, slug in self._API_ENDPOINTS:
+            url = f"{base}/{slug}"
+            lines.append(f"• {name} — `{method} {path}` · [doc]({url})")
         await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
     
     # ==================== Admin Commands (Teacher Mode) ====================
@@ -596,17 +591,18 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
                 mcp_info = self._resolve_mcp_call(message)
                 if mcp_info:
                     tool_name, params = mcp_info
+                    # list_futures: use paginated fetch, reply with count only
+                    if tool_name == "list_futures":
+                        symbols = await fetch_all_futures_symbols(self.mcp_client)
+                        n = len(symbols)
+                        await update.message.reply_text(
+                            f"There are **{n}** futures pairs listed. To see the full list, use the `list_futures` MCP tool "
+                            "or the futures API at docs.trade.mudrex.com.",
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        return
                     res = await self.mcp_client.call_tool(tool_name, params)
                     if res.get("success") and res.get("data"):
-                        # list_futures: reply with count only, no full dump or LLM
-                        if tool_name == "list_futures":
-                            n = len(_extract_symbols(res.get("data")))
-                            await update.message.reply_text(
-                                f"There are **{n}** futures pairs listed. To see the full list, use the `list_futures` MCP tool "
-                                "or the futures API at docs.trade.mudrex.com.",
-                                parse_mode=ParseMode.MARKDOWN
-                            )
-                            return
                         mcp_context = self._format_mcp_for_context(res)
                         logger.info(f"MCP co-pilot: {tool_name} -> {len(mcp_context or '')} chars")
             

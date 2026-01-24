@@ -108,6 +108,47 @@ def _extract_symbols(data: Any) -> Set[str]:
     return symbols
 
 
+# Page size for list_futures. We paginate until the API returns 0, so total can exceed this.
+_LIST_FUTURES_PAGE_SIZE = 500
+# Safety cap: stop after fetching this many items to avoid runaway loops.
+_LIST_FUTURES_MAX_ITEMS = 5000
+
+
+async def fetch_all_futures_symbols(mcp_client) -> Set[str]:
+    """
+    Fetch all futures symbols via MCP list_futures with pagination.
+
+    - Requests up to _LIST_FUTURES_PAGE_SIZE (500) per call to limit round-trips
+      while staying under typical API limits.
+    - Pages using offset until the API returns 0 items, so the total can be 540, 1000, etc.
+    - If the first parameterized call fails, falls back to list_futures with {}.
+    """
+    all_symbols: Set[str] = set()
+    offset = 0
+    limit = _LIST_FUTURES_PAGE_SIZE
+    max_items = _LIST_FUTURES_MAX_ITEMS
+
+    while offset < max_items:
+        res = await mcp_client.call_tool("list_futures", {"limit": limit, "offset": offset})
+        if not res.get("success"):
+            if offset == 0:
+                res = await mcp_client.call_tool("list_futures", {})
+                if res.get("success"):
+                    return _extract_symbols(res.get("data"))
+            return all_symbols
+        syms = _extract_symbols(res.get("data"))
+        n = len(syms)
+        if n == 0:
+            break
+        before = len(all_symbols)
+        all_symbols |= syms
+        # If we got only duplicates (server may not support offset), stop.
+        if n > 0 and len(all_symbols) == before:
+            break
+        offset += n
+    return all_symbols
+
+
 async def run(mcp_client) -> tuple[bool, str]:
     """
     Fetch current futures via MCP list_futures, diff vs last snapshot, persist state.
@@ -121,13 +162,7 @@ async def run(mcp_client) -> tuple[bool, str]:
         logger.debug("Futures listing watcher: no authenticated MCP client; skipping")
         return False, ""
 
-    res = await mcp_client.call_tool("list_futures", {})
-    if not res.get("success"):
-        logger.warning(f"Futures listing watcher: list_futures failed: {res.get('message', 'unknown')}")
-        return False, ""
-
-    raw = res.get("data")
-    current = _extract_symbols(raw)
+    current = await fetch_all_futures_symbols(mcp_client)
     if not current:
         logger.warning("Futures listing watcher: no symbols extracted from list_futures response")
 

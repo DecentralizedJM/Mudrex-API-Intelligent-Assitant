@@ -58,6 +58,14 @@ class Config:
     RATE_LIMIT_MESSAGES: int = 30  # Max messages per user
     RATE_LIMIT_WINDOW: int = 60  # Per minute
     
+    # Google Search Grounding (for out-of-context API questions)
+    GEMINI_GROUNDING_MODEL: str = "gemini-2.5-flash"
+    
+    # Changelog watcher (daily scrape + broadcast to ALLOWED_CHAT_IDS)
+    ENABLE_CHANGELOG_WATCHER: bool = True
+    CHANGELOG_CRON_HOUR: int = 2  # 2 AM UTC
+    CHANGELOG_CRON_MINUTE: int = 0
+    
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment variables"""
@@ -113,6 +121,12 @@ class Config:
             # Rate Limiting
             RATE_LIMIT_MESSAGES=int(os.getenv("RATE_LIMIT_MESSAGES", "30")),
             RATE_LIMIT_WINDOW=int(os.getenv("RATE_LIMIT_WINDOW", "60")),
+            
+            # Grounding and changelog watcher
+            GEMINI_GROUNDING_MODEL=os.getenv("GEMINI_GROUNDING_MODEL", "gemini-2.5-flash"),
+            ENABLE_CHANGELOG_WATCHER=os.getenv("ENABLE_CHANGELOG_WATCHER", "true").lower() == "true",
+            CHANGELOG_CRON_HOUR=int(os.getenv("CHANGELOG_CRON_HOUR", "2")),
+            CHANGELOG_CRON_MINUTE=int(os.getenv("CHANGELOG_CRON_MINUTE", "0")),
         )
     
     def validate(self) -> List[str]:

@@ -19,6 +19,7 @@ from src.config import config
 from src.rag import RAGPipeline
 from src.bot import MudrexBot
 from src.mcp import MudrexMCPClient
+from src.tasks.scheduler import setup_scheduler
 
 # Configure logging
 logging.basicConfig(
@@ -110,6 +111,13 @@ async def async_main():
     logger.info("Initializing Telegram bot...")
     bot = MudrexBot(rag_pipeline, mcp_client)
     
+    # Scheduler for daily changelog scrape + ingest + broadcast
+    scheduler = None
+    if config.ENABLE_CHANGELOG_WATCHER:
+        docs_dir = Path(__file__).parent / "docs"
+        scheduler = setup_scheduler(bot, rag_pipeline, docs_dir)
+        scheduler.start()
+    
     try:
         # Start the bot
         logger.info("Starting bot...")
@@ -132,7 +140,8 @@ async def async_main():
     finally:
         logger.info("Shutting down...")
         
-        # Cleanup
+        if scheduler:
+            scheduler.shutdown(wait=False)
         await bot.stop()
         
         if mcp_client:

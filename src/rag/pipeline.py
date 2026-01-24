@@ -104,9 +104,14 @@ class RAGPipeline:
             logger.info("No docs retrieved above threshold")
             
         if not retrieved_docs:
+            # API-related but RAG empty: use Google Search grounding
+            logger.info("No RAG docs; using Google Search grounding for API-related query")
+            answer = self.gemini_client.generate_response_with_grounding(
+                question, [], chat_history
+            )
             return {
-                'answer': "I couldn't find relevant information in the documentation. Could you rephrase your question or check the official Mudrex API documentation?",
-                'sources': [],
+                'answer': answer,
+                'sources': [{'filename': 'Google Search (grounding)', 'similarity': 0.0}],
                 'is_relevant': True
             }
         
@@ -139,10 +144,17 @@ class RAGPipeline:
             'model': self.gemini_client.model_name
         }
 
-    def learn_text(self, text: str) -> None:
-        """Learn new unstructured text (Admin only)"""
-        self.vector_store.add_documents([text])
-        logger.info(f"Learned new text: {text[:50]}...")
+    def learn_text(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+        """Learn new unstructured text (Admin only). Chunks long text. Optional metadata (e.g. source, filename)."""
+        base = metadata or {}
+        if len(text) > 1500:
+            chunks = self.document_loader.chunk_document(text, chunk_size=1000, overlap=200)
+            metadatas = [dict(base, chunk_index=i, total_chunks=len(chunks)) for i in range(len(chunks))]
+            self.vector_store.add_documents(chunks, metadatas, None)
+            logger.info(f"Learned {len(chunks)} chunks ({len(text)} chars)")
+        else:
+            self.vector_store.add_documents([text], [base], None)
+            logger.info(f"Learned new text: {text[:50]}...")
 
     def set_fact(self, key: str, value: str) -> None:
         """Set a strict fact (Admin only)"""

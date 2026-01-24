@@ -24,40 +24,34 @@ class GeminiClient:
     Uses google-genai package with genai.Client()
     """
     
-    # Bot personality - Technical Community Manager & Debugger
-    # Bot personality - Senior Developer & Technical Lead
-    SYSTEM_INSTRUCTION = """You are **MudrexBot** - the **Senior Technical Engineer** for the Mudrex API group.
-    
-    ## CORE DIRECTIVES (STRICT ADHERENCE REQUIRED)
-    1.  **CODE FIRST**: When asked about implementation, "how to", or generic coding questions, **ALWAYS** provide a code snippet.
-        -   Use **Python (requests)** as the default language.
-        -   Wrap code in ```python blocks.
-        -   Include imports (e.g., `import requests`).
-        -   Add comments explaining critical parameters.
-        
-    2.  **NO HALLUCINATIONS**: Answer based on the **Relevant Documentation** provided below OR the **Knowledge Base**.
-        -   If missing: "I don't have that info in my docs. @DecentralizedJM can you help?"
-        
-    3.  **DEBUG FIRST**: If logs are present, analyze them immediately.
-    
-    4.  **ZERO CHIT-CHAT**: Be robotic but helpful. Direct answers only.
+    # Bot personality - System Admin, expert in API, REST, WebSocket, Webhook
+    SYSTEM_INSTRUCTION = """You are **MudrexBot** — a skilled **System Admin** and expert in API, REST, WebSocket, and Webhook systems for the Mudrex API group.
 
-    ## RESPONSE PROTOCOL
-    - **If known**: Answer directly with code/facts.
-    - **If inferred**: State "Based on similar endpoints..."
-    - **If unknown**: "Unknown API question. @DecentralizedJM please assist."
+## ROLE
+- Expert in API design, REST, WebSocket, Webhook. You know what Mudrex offers and what it does **not**.
+- Polite, professional, no chitter-chatter. Helpful and concise; human, not robotic.
 
-    ## KNOWLEDGE BASE (Errors & Limits)
-    - **Rate Limits**: 2 requests/second.
-    - **Latency**: ~100-300ms.
-    - **Error -1121**: Invalid Symbol (Use BTCUSDT).
-    - **Error -1022**: Signature Mismatch (Check system clock).
+## CORE DIRECTIVES
+1. **NO HALLUCINATIONS**: Answer only from the **Relevant Documentation** below, **Knowledge Base**, **FactStore**, or explicit external search when used. Do not invent endpoints or behaviors.
+2. **For Mudrex-specific details** (endpoints, errors, behavior): use **only** the provided documentation and facts. If it's not there, say so and escalate.
+3. **DEBUG FIRST**: If logs or code are present, analyze them before answering.
+4. **TROUBLESHOOT WITH CODE**: When asked "how to", integration, or debugging, provide concrete code snippets (Python or JS). Use ```python or ```javascript. Include imports and comments for critical parts.
+5. **MUDREX SCOPE**: Explicitly state when something is supported vs not. E.g. "Mudrex does not have X; you can achieve similar with Y."
+6. **GENERAL API QUESTIONS**: Answer clearly. When it helps, explain benefits, use cases, and when to use what (concise "sales" clarity).
 
-    ## DATA PRIVACY
-    - You use a shared **Service Account** (Public Data Only).
-    - No personal balances/orders accessible.
+## RESPONSE PROTOCOL
+- **If known (in context)**: Answer directly with facts and code when useful.
+- **If inferred**: Say "Based on similar endpoints..." and note it's an estimate.
+- **If unknown (Mudrex-specific, not in docs)**: "This isn't in my docs. [Brief restatement or best guess if any.] Correct me if I'm wrong — @DecentralizedJM, can you help?"
 
-    Be the expert. Unlock your full coding potential."""
+## KNOWLEDGE BASE (Errors & Limits)
+- **Rate limits**: 2 requests/second.
+- **Latency**: ~100–300 ms.
+- **Error -1121**: Invalid Symbol (use BTCUSDT, not BTC-USDT).
+- **Error -1022**: Signature Mismatch (check system clock and API secret).
+
+## DATA PRIVACY
+- Shared **Service Account** (public data only). No personal balances/orders."""
     
     def __init__(self):
         """Initialize Gemini client with NEW SDK"""
@@ -136,14 +130,15 @@ class GeminiClient:
                 return True
         
         # API and trading keywords
-        # STRONG keywords (Sufficient alone if msg length > 5)
+        # STRONG keywords (sufficient alone when msg length > 5)
         strong_keywords = [
             'mudrex', 'fapi', 'api', 'endpoint', 'webhook', 'websocket', 'mcp',
             'x-authentication', 'auth', 'token', 'secret', 'jwt',
-            'btc', 'eth', 'usdt', 'futures', 'perpetual'
+            'btc', 'eth', 'usdt', 'futures', 'perpetual',
+            'rest', 'trade.mudrex.com', 'fapi/v1', 'http', 'https'
         ]
         
-        # WEAK keywords (Need at least one STRONG keyword or another WEAK keyword)
+        # WEAK keywords (need 2+ when no STRONG, to reduce false positives)
         weak_keywords = [
             'price', 'order', 'trade', 'position', 'balance', 'margin',
             'leverage', 'liquidation', 'profit', 'loss', 'buy', 'sell',
@@ -151,21 +146,14 @@ class GeminiClient:
             'fix', 'help', 'code', 'python', 'javascript', 'rate', 'latency'
         ]
         
-        # Count matches
         strong_count = sum(1 for kw in strong_keywords if kw in message_lower)
         weak_count = sum(1 for kw in weak_keywords if kw in message_lower)
         
-        # LOGIC:
-        # 1. Any STRONG keyword -> Pass
-        # 2. At least 2 WEAK keywords -> Pass (e.g. "price limit")
-        # 3. Otherwise -> Ignore (e.g. "price of mars dust" has only "price")
-        
+        # LOGIC: Any STRONG -> Pass. Otherwise 2+ WEAK -> Pass.
         if strong_count >= 1:
             return True
-            
         if weak_count >= 2:
             return True
-            
         return False
     
     def generate_response(
@@ -218,6 +206,41 @@ class GeminiClient:
         except Exception as e:
             logger.error(f"Error generating response: {e}", exc_info=True)
             return "Hit a snag there. What's your API question? I'll give it another shot."
+
+    def generate_response_with_grounding(
+        self,
+        query: str,
+        context_documents: List[Dict[str, Any]],
+        chat_history: Optional[List[Dict[str, str]]] = None,
+    ) -> str:
+        """
+        Generate a response using Gemini with Google Search grounding.
+        Used when RAG has no docs but the query is API-related (out-of-context).
+        """
+        prompt = self._build_prompt(query, context_documents, chat_history)
+        model = config.GEMINI_GROUNDING_MODEL
+        try:
+            grounding_tool = types.Tool(google_search=types.GoogleSearch())
+            response = self.client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.SYSTEM_INSTRUCTION,
+                    temperature=self.temperature,
+                    max_output_tokens=config.GEMINI_MAX_TOKENS,
+                    tools=[grounding_tool],
+                ),
+            )
+            answer = response.text if response.text else ""
+            if not answer:
+                return "I couldn't find enough from the web for that. Try rephrasing or check the Mudrex API docs."
+            answer = self._clean_response(answer)
+            if len(answer) > config.MAX_RESPONSE_LENGTH:
+                answer = answer[: config.MAX_RESPONSE_LENGTH - 100] + "\n\n_(Response truncated.)_"
+            return answer
+        except Exception as e:
+            logger.error(f"Error in grounded response: {e}", exc_info=True)
+            return "Hit a snag with the search. What's your API question? I'll try again."
     
     def _build_prompt(
         self,
@@ -286,32 +309,27 @@ class GeminiClient:
     
     def parse_learning_instruction(self, text: str) -> Dict[str, Any]:
         """
-        Analyze text to see if it's a teaching instruction.
+        Analyze text to see if it's a teaching instruction. Handles unstructured forms.
         Returns:
-            {
-                'action': 'LEARN' | 'SET_FACT' | 'NONE',
-                'content': str,
-                'key': str (optional),
-                'value': str (optional)
-            }
+            {'action': 'LEARN' | 'SET_FACT' | 'NONE', 'content': str, 'key': str?, 'value': str?}
         """
         prompt = f"""
-        Analyze this admin message for teaching intent.
+        Analyze this admin message for teaching intent. Handle unstructured forms.
         
         Message: "{text}"
         
-        Identify if the admin wants to:
-        1. SET_FACT: Define a strict rule/constant (e.g., "Latency is 200ms", "Rate limit is 5").
-        2. LEARN: Add general knowledge/context (e.g., "The new endpoint handles order processing like this...").
-        3. NONE: Just a regular chat or question.
+        Identify:
+        1. SET_FACT: A strict rule/constant (e.g. "Latency is 200ms", "Rate limit is 5", "X is always Y").
+        2. LEARN: General knowledge to remember. Examples:
+           - "From now on...", "Remember: ...", "If users ask X, say Y"
+           - "New endpoint: ...", "We don't support X", FAQ-style Q&A, plain paragraphs
+        3. NONE: Regular chat or question, not teaching.
+        
+        For LEARN, set "content" to a cleaned, normalized version suitable for embedding (one or a few sentences).
+        For SET_FACT, set "key" (e.g. LATENCY) and "value".
         
         Return JSON ONLY:
-        {{
-            "action": "SET_FACT" | "LEARN" | "NONE",
-            "key": "KEY_NAME" (For SET_FACT, e.g. LATENCY),
-            "value": "Value" (For SET_FACT),
-            "content": "Cleaned text to learn" (For LEARN)
-        }}
+        {{"action": "SET_FACT" | "LEARN" | "NONE", "key": "KEY" or null, "value": "..." or null, "content": "..." or null}}
         """
         
         try:

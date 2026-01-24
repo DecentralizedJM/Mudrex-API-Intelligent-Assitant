@@ -28,3 +28,6 @@ uvicorn>=0.34.0
 
 # Optional: Better async
 httpx>=0.27.0
+
+# Scheduler (daily changelog watcher + docs scrape)
+apscheduler>=3.10.0

@@ -137,14 +137,17 @@ class MudrexBot:
             if intent.get('action') == 'SET_FACT':
                 key = intent.get('key')
                 value = intent.get('value')
-                self.rag_pipeline.set_fact(key, value)
-                await update.message.reply_text(f"✅ **Teacher Mode**: I've memorized that **{key}** is `{value}`.", parse_mode=ParseMode.MARKDOWN)
+                if key and value:
+                    self.rag_pipeline.set_fact(key, value)
+                    await update.message.reply_text(f"Got it — I'll remember **{key}** as {value}.", parse_mode=ParseMode.MARKDOWN)
+                else:
+                    await update.message.reply_text("I couldn't parse a clear key/value. Try: \"X is Y\" or \"/set_fact KEY value\".")
                 return
             
             elif intent.get('action') == 'LEARN':
-                content = intent.get('content')
+                content = intent.get('content') or message
                 self.rag_pipeline.learn_text(content)
-                await update.message.reply_text(f"✅ **Teacher Mode**: I've learned this new information:\n_{content[:100]}..._", parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text("Noted. I've added that to my knowledge — I'll use it when it's relevant.", parse_mode=ParseMode.MARKDOWN)
                 return
             
             # If no teaching intent, normal RAG query (for testing)
@@ -195,12 +198,11 @@ class MudrexBot:
             file_content = await new_file.download_as_bytearray()
             text_content = file_content.decode('utf-8')
             
-            # Learn Text
-            # Prepend filename for context
+            # Learn Text (prepend filename; pass metadata)
             knowledge = f"file: {file_name}\n\n{text_content}"
-            self.rag_pipeline.learn_text(knowledge)
+            self.rag_pipeline.learn_text(knowledge, metadata={"source": "admin_upload", "filename": file_name})
             
-            await status_msg.edit_text(f"✅ Learned **{file_name}** ({len(text_content)} bytes).", parse_mode=ParseMode.MARKDOWN)
+            await status_msg.edit_text(f"Got it — I've added **{file_name}** to my knowledge. I'll use it when it's relevant.", parse_mode=ParseMode.MARKDOWN)
             
         except UnicodeDecodeError:
             await status_msg.edit_text("❌ Error: File must be text-based (UTF-8).")
@@ -404,7 +406,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
 
         try:
             self.rag_pipeline.learn_text(text)
-            await update.message.reply_text(f"✅ Learned new knowledge:\n_{text[:100]}..._", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text("Noted. I've added that to my knowledge — I'll use it when it's relevant.", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
             await update.message.reply_text(f"❌ Error learning: {e}")
 
@@ -505,15 +507,10 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         
         logger.info(f"Group message from {user_name} in {chat_id}: {message[:50]}... | mentioned={bot_mentioned} | api_related={is_api_related}")
         
-        # If tagged but not API-related, redirect to API topics
+        # If tagged but not API-related, short redirect
         if bot_mentioned and not is_api_related:
             await update.message.reply_text(
-                "I'm here to help with Mudrex API questions! Ask me about:\n"
-                "• API integration and authentication\n"
-                "• Code debugging and errors\n"
-                "• MCP server setup\n"
-                "• Order/position management\n\n"
-                "What would you like to know?"
+                "I'm here for API, REST, WebSocket, and Webhook help. What would you like to know?"
             )
             return
         

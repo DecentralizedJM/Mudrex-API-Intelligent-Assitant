@@ -74,15 +74,17 @@ class MudrexBot:
     
     def _register_handlers(self):
         """Register command and message handlers"""
-        # Commands - only work in groups
-        self.app.add_handler(CommandHandler("start", self.cmd_start, filters.ChatType.GROUPS))
-        self.app.add_handler(CommandHandler("help", self.cmd_help, filters.ChatType.GROUPS))
-        self.app.add_handler(CommandHandler("stats", self.cmd_stats, filters.ChatType.GROUPS))
-        self.app.add_handler(CommandHandler("tools", self.cmd_tools, filters.ChatType.GROUPS))
-        self.app.add_handler(CommandHandler("mcp", self.cmd_mcp, filters.ChatType.GROUPS))
-        self.app.add_handler(CommandHandler("listfutures", self.cmd_listfutures, filters.ChatType.GROUPS))
-        self.app.add_handler(CommandHandler("futures", self.cmd_listfutures, filters.ChatType.GROUPS))  # alias
-        self.app.add_handler(CommandHandler("endpoints", self.cmd_endpoints, filters.ChatType.GROUPS))
+        # Commands - Available in Groups AND DMs
+        self.app.add_handler(CommandHandler("start", self.cmd_start))
+        self.app.add_handler(CommandHandler("help", self.cmd_help))
+        self.app.add_handler(CommandHandler("stats", self.cmd_stats))
+        self.app.add_handler(CommandHandler("tools", self.cmd_tools))
+        self.app.add_handler(CommandHandler("mcp", self.cmd_mcp))
+        
+        # Futures Tools
+        self.app.add_handler(CommandHandler("futures", self.cmd_futures))
+        self.app.add_handler(CommandHandler("listfutures", self.cmd_futures))  # Alias
+        self.app.add_handler(CommandHandler("endpoints", self.cmd_endpoints))
         
         # Admin Commands (Work in Groups & DM for admins ideally, but keeping group-only filter for consistency unless DM needed)
         # Actually, let's allow admins to teach in DMs too! 
@@ -220,8 +222,9 @@ class MudrexBot:
             BotCommand("help", "Show help"),
             BotCommand("tools", "MCP server tools list"),
             BotCommand("mcp", "MCP setup guide"),
-            BotCommand("listfutures", "List futures (count)"),
-            BotCommand("endpoints", "API endpoints (names only)"),
+            BotCommand("listfutures", "List futures contracts (count)"),
+            BotCommand("endpoints", "API endpoints"),
+
             BotCommand("stats", "Bot statistics"),
         ]
         await self.app.bot.set_my_commands(commands)

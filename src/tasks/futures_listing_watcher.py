@@ -149,7 +149,15 @@ async def fetch_all_futures_symbols_via_rest(api_secret: str) -> Set[str]:
             if not isinstance(arr, list):
                 break
             before = len(all_symbols)
-            syms = _extract_from_list(arr)
+            # Use only "symbol" — id/asset_id are UUIDs and would inflate the count
+            syms = set()
+            for o in arr:
+                if isinstance(o, dict):
+                    s = o.get("symbol")
+                    if isinstance(s, str) and s:
+                        n = _normalize_symbol(s)
+                        if n:
+                            syms.add(n)
             all_symbols |= syms
             n = len(arr)
             if n == 0:

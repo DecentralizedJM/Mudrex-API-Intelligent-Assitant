@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 from .vector_store import VectorStore
 from .gemini_client import GeminiClient
 from .document_loader import DocumentLoader
+from .fact_store import FactStore
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class RAGPipeline:
         self.vector_store = VectorStore()
         self.gemini_client = GeminiClient()
         self.document_loader = DocumentLoader()
+        self.fact_store = FactStore()
         logger.info("RAG Pipeline initialized")
     
     def ingest_documents(self, docs_directory: str) -> int:
@@ -69,6 +71,16 @@ class RAGPipeline:
         Returns:
             Dict with 'answer', 'sources', and 'is_relevant'
         """
+        # 1. Check Fact Store (Strict Rules) - PRIORITY OVER EVERYTHING
+        fact_match = self.fact_store.search(question)
+        if fact_match:
+            logger.info(f"Fact Match found for query: {question}")
+            return {
+                'answer': fact_match,
+                'sources': [{'filename': 'FactStore (Strict User Rule)', 'similarity': 1.0}],
+                'is_relevant': True
+            }
+
         # Check if query is API-related
         is_api_related = self.gemini_client.is_api_related_query(question)
         
@@ -79,7 +91,7 @@ class RAGPipeline:
                 'is_relevant': False
             }
         
-        # Retrieve relevant documents
+        # 2. Retrieve relevant documents
         logger.info(f"Processing query: {question[:50]}...")
         retrieved_docs = self.vector_store.search(question, top_k=top_k)
         
@@ -126,3 +138,16 @@ class RAGPipeline:
             'total_documents': self.vector_store.get_count(),
             'model': self.gemini_client.model_name
         }
+
+    def learn_text(self, text: str) -> None:
+        """Learn new unstructured text (Admin only)"""
+        self.vector_store.add_documents([text])
+        logger.info(f"Learned new text: {text[:50]}...")
+
+    def set_fact(self, key: str, value: str) -> None:
+        """Set a strict fact (Admin only)"""
+        self.fact_store.set(key, value)
+
+    def delete_fact(self, key: str) -> bool:
+        """Delete a strict fact (Admin only)"""
+        return self.fact_store.delete(key)

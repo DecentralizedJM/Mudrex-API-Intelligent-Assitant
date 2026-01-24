@@ -81,6 +81,13 @@ class MudrexBot:
         self.app.add_handler(CommandHandler("mcp", self.cmd_mcp, filters.ChatType.GROUPS))
         self.app.add_handler(CommandHandler("futures", self.cmd_futures, filters.ChatType.GROUPS))
         
+        # Admin Commands (Work in Groups & DM for admins ideally, but keeping group-only filter for consistency unless DM needed)
+        # Actually, let's allow admins to teach in DMs too! 
+        # But wait, self.reject_dm blocks DMs. Let's keep it simple: Admin commands work in GROUPS for now.
+        self.app.add_handler(CommandHandler("learn", self.cmd_learn)) # Removed ChatType filter to allow flexibility if we open DMs later
+        self.app.add_handler(CommandHandler("set_fact", self.cmd_set_fact))
+        self.app.add_handler(CommandHandler("delete_fact", self.cmd_delete_fact))
+        
         # Message handler - ONLY in groups, only when mentioned/tagged
         self.app.add_handler(
             MessageHandler(
@@ -284,6 +291,79 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
                 "This is a community bot for general API help."
             )
     
+    # ==================== Admin Commands (Teacher Mode) ====================
+    
+    def _is_admin(self, user_id: int) -> bool:
+        """Check if user is an admin"""
+        if not config.ADMIN_USER_IDS:
+            return False
+        return user_id in config.ADMIN_USER_IDS
+    
+    async def cmd_learn(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        /learn <text>
+        Ingest new knowledge into the vector store immediately.
+        """
+        user_id = update.effective_user.id
+        if not self._is_admin(user_id):
+            await update.message.reply_text("🚫 Admin only.")
+            return
+
+        text = " ".join(context.args)
+        if not text:
+            await update.message.reply_text("Usage: `/learn The new rate limit is 50 requests per minute.`", parse_mode=ParseMode.MARKDOWN)
+            return
+
+        try:
+            self.rag_pipeline.learn_text(text)
+            await update.message.reply_text(f"✅ Learned new knowledge:\n_{text[:100]}..._", parse_mode=ParseMode.MARKDOWN)
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error learning: {e}")
+
+    async def cmd_set_fact(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        /set_fact <key> <value>
+        Set a strict fact (Key-Value) that overrides RAG.
+        """
+        user_id = update.effective_user.id
+        if not self._is_admin(user_id):
+            await update.message.reply_text("🚫 Admin only.")
+            return
+
+        if len(context.args) < 2:
+            await update.message.reply_text("Usage: `/set_fact LATENCY 200ms`", parse_mode=ParseMode.MARKDOWN)
+            return
+
+        key = context.args[0].upper()
+        value = " ".join(context.args[1:])
+        
+        try:
+            self.rag_pipeline.set_fact(key, value)
+            await update.message.reply_text(f"✅ Fact Set: **{key}** = `{value}`", parse_mode=ParseMode.MARKDOWN)
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error setting fact: {e}")
+
+    async def cmd_delete_fact(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        /delete_fact <key>
+        Delete a strict fact.
+        """
+        user_id = update.effective_user.id
+        if not self._is_admin(user_id):
+            await update.message.reply_text("🚫 Admin only.")
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: `/delete_fact LATENCY`", parse_mode=ParseMode.MARKDOWN)
+            return
+
+        key = context.args[0].upper()
+        
+        if self.rag_pipeline.delete_fact(key):
+            await update.message.reply_text(f"✅ Fact **{key}** deleted.", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await update.message.reply_text(f"⚠️ Fact **{key}** not found.", parse_mode=ParseMode.MARKDOWN)
+
     # ==================== Message Handler ====================
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -83,6 +83,14 @@ class RAGPipeline:
         logger.info(f"Processing query: {question[:50]}...")
         retrieved_docs = self.vector_store.search(question, top_k=top_k)
         
+        # DEBUG: Log retrieval scores
+        if retrieved_docs:
+            logger.info("Top retrieved docs:")
+            for doc in retrieved_docs:
+                logger.info(f"- {doc['metadata'].get('filename')}: {doc['similarity']:.4f}")
+        else:
+            logger.info("No docs retrieved above threshold")
+            
         if not retrieved_docs:
             return {
                 'answer': "I couldn't find relevant information in the documentation. Could you rephrase your question or check the official Mudrex API documentation?",

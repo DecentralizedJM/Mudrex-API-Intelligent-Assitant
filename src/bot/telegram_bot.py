@@ -104,6 +104,14 @@ class MudrexBot:
             )
         )
         
+        # Document Handler (File Uploads)
+        self.app.add_handler(
+            MessageHandler(
+                filters.Document.ALL & filters.ChatType.PRIVATE,
+                self.handle_document
+            )
+        )
+        
         self.app.add_error_handler(self.error_handler)
         logger.info("Handlers registered (GROUP-ONLY)")
     
@@ -156,6 +164,50 @@ class MudrexBot:
                 "Join the group and tag me with @ to ask questions!"
             )
     
+    async def handle_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle File Uploads (Admin Only)
+        Allows bulk learning from files (.txt, .md, .json, .py)
+        """
+        user_id = update.effective_user.id
+        
+        # 1. Access Control
+        if not self._is_admin(user_id):
+            await update.message.reply_text(f"🚫 Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
+            return
+
+        doc = update.message.document
+        file_name = doc.file_name or "document"
+        
+        # 2. File Type Validation
+        allowed_extensions = {'.txt', '.md', '.json', '.py', '.yaml', '.yml', '.rst'}
+        is_valid = any(file_name.lower().endswith(ext) for ext in allowed_extensions)
+        
+        if not is_valid:
+            await update.message.reply_text("⚠️ Supported formats: .txt, .md, .json, .py, .yaml")
+            return
+
+        # 3. Process File
+        status_msg = await update.message.reply_text("📥 Processing file...")
+        try:
+            # Download file
+            new_file = await doc.get_file()
+            file_content = await new_file.download_as_bytearray()
+            text_content = file_content.decode('utf-8')
+            
+            # Learn Text
+            # Prepend filename for context
+            knowledge = f"file: {file_name}\n\n{text_content}"
+            self.rag_pipeline.learn_text(knowledge)
+            
+            await status_msg.edit_text(f"✅ Learned **{file_name}** ({len(text_content)} bytes).", parse_mode=ParseMode.MARKDOWN)
+            
+        except UnicodeDecodeError:
+            await status_msg.edit_text("❌ Error: File must be text-based (UTF-8).")
+        except Exception as e:
+            logger.error(f"File upload error: {e}")
+            await status_msg.edit_text("❌ Error processing file.")
+
     async def setup_commands(self):
         """Set up bot commands menu"""
         commands = [

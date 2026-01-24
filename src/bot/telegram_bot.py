@@ -578,7 +578,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         # If tagged but not API-related, short redirect
         if bot_mentioned and not is_api_related:
             await update.message.reply_text(
-                "I'm here for API, REST, WebSocket, and Webhook help. What would you like to know?"
+                "I'm here for API and REST help. What would you like to know?"
             )
             return
         

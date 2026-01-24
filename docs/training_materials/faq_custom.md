@@ -60,7 +60,7 @@ A: You hit the rate limit: 2 requests/second per API key. Wait briefly and retry
 A: Your local state differs from the exchange. Fetch the latest position/order data and retry.
 
 **Q: Do you support WebSockets?**
-A: Not yet. Only REST endpoints are currently available.
+A: No. Mudrex supports only REST. There are no WebSocket or Webhook APIs. Use REST polling for market data.
 
 **Q: What headers are required for authentication?**
 A: Only `X-Authentication` with your API secret. Mudrex does not use HMAC, SHA256, signature, X-MUDREX-API-KEY, X-MUDREX-SIGNATURE, X-MUDREX-TIMESTAMP, or X-Time. For POST/PATCH/DELETE add `Content-Type: application/json`.

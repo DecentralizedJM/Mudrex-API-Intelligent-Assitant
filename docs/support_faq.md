@@ -142,7 +142,7 @@ Could not extract content.
 
 **Source**: https://mudrex653095807156433837.freshdesk.com/support/solutions/articles/1060000152325-do-you-support-websockets-
 
-Could not extract content.
+**A:** No. Mudrex supports only REST APIs. There are no WebSocket or Webhook APIs. Use REST polling for real-time-like data.
 
 ---
 

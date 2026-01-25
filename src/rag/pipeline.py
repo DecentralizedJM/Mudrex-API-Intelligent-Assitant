@@ -84,15 +84,8 @@ class RAGPipeline:
                 'is_relevant': True
             }
 
-        # Check if query is API-related
-        is_api_related = self.gemini_client.is_api_related_query(question)
-        
-        if not is_api_related:
-            return {
-                'answer': "I'm here to help with Mudrex API questions only. Please ask about API endpoints, authentication, integration, or technical documentation.",
-                'sources': [],
-                'is_relevant': False
-            }
+        # NOTE: is_api_related check is now done in telegram_bot.py (handle_message)
+        # Pipeline should always process what gets to it after that gatekeeper check
         
         # 2. Retrieve relevant documents
         logger.info(f"Processing query: {question[:50]}...")

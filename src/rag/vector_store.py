@@ -67,19 +67,24 @@ class VectorStore:
                 'ids': self.ids
             }, f)
     
-    def _get_embedding(self, text: str) -> List[float]:
-        """Get embedding for text using NEW Gemini SDK"""
-        try:
-            # Use the new SDK format for embeddings
-            result = self.client.models.embed_content(
-                model=config.EMBEDDING_MODEL,
-                contents=text,
-            )
-            return result.embeddings[0].values
-        except Exception as e:
-            logger.error(f"Error getting embedding: {e}")
-            # Return zero vector as fallback
-            return [0.0] * 768  # Typical embedding size
+    def _get_embedding(self, text: str, retries: int = 1) -> List[float]:
+        """Get embedding for text using NEW Gemini SDK with retry logic"""
+        import time
+        for attempt in range(retries + 1):
+            try:
+                # Use the new SDK format for embeddings
+                result = self.client.models.embed_content(
+                    model=config.EMBEDDING_MODEL,
+                    contents=text,
+                )
+                return result.embeddings[0].values
+            except Exception as e:
+                if attempt < retries:
+                    logger.warning(f"Embedding retry {attempt + 1}/{retries}: {e}")
+                    time.sleep(0.5)  # Brief pause before retry
+                    continue
+                logger.error(f"Embedding failed after {retries + 1} attempts: {e}")
+                raise  # Let caller handle gracefully instead of returning broken zero vector
     
     def add_documents(
         self,

@@ -144,15 +144,15 @@ class MudrexBot:
                 value = intent.get('value')
                 if key and value:
                     self.rag_pipeline.set_fact(key, value)
-                    await update.message.reply_text(f"Got it — I'll remember **{key}** as {value}.", parse_mode=ParseMode.MARKDOWN)
+                    await update.message.reply_text(f"Got it — **{key}** = {value}", parse_mode=ParseMode.MARKDOWN)
                 else:
-                    await update.message.reply_text("I couldn't parse a clear key/value. Try: \"X is Y\" or \"/set_fact KEY value\".")
+                    await update.message.reply_text("Couldn't parse that. Try: \"X is Y\" or `/set_fact KEY value`", parse_mode=ParseMode.MARKDOWN)
                 return
             
             elif intent.get('action') == 'LEARN':
                 content = intent.get('content') or message
                 self.rag_pipeline.learn_text(content)
-                await update.message.reply_text("Noted. I've added that to my knowledge — I'll use it when it's relevant.", parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text("Got it — I'll remember that.", parse_mode=ParseMode.MARKDOWN)
                 return
             
             # If no teaching intent, normal RAG query (for testing)
@@ -163,14 +163,7 @@ class MudrexBot:
         # 2. NON-ADMIN LOGIC (Reject)
         if update.message:
             await update.message.reply_text(
-                "👋 Hi! I'm the **AI co-pilot** for the Mudrex API group.\n\n"
-                "I only work in groups where API traders discuss:\n"
-                "• API integration questions\n"
-                "• Coding help and debugging\n"
-                "• Error troubleshooting\n"
-                "• Feedback and suggestions\n\n"
-                "Join the group and tag me with @ to ask questions!",
-                parse_mode=ParseMode.MARKDOWN
+                "Hey! I only answer questions in the group — tag me there with @ and I'll help out."
             )
     
     async def handle_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,7 +175,7 @@ class MudrexBot:
         
         # 1. Access Control
         if not self._is_admin(user_id):
-            await update.message.reply_text(f"🚫 Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
             return
 
         doc = update.message.document
@@ -193,11 +186,11 @@ class MudrexBot:
         is_valid = any(file_name.lower().endswith(ext) for ext in allowed_extensions)
         
         if not is_valid:
-            await update.message.reply_text("⚠️ Supported formats: .txt, .md, .json, .py, .yaml")
+            await update.message.reply_text("Supported formats: .txt, .md, .json, .py, .yaml")
             return
 
         # 3. Process File
-        status_msg = await update.message.reply_text("📥 Processing file...")
+        status_msg = await update.message.reply_text("Processing...")
         try:
             # Download file
             new_file = await doc.get_file()
@@ -208,13 +201,13 @@ class MudrexBot:
             knowledge = f"file: {file_name}\n\n{text_content}"
             self.rag_pipeline.learn_text(knowledge, metadata={"source": "admin_upload", "filename": file_name})
             
-            await status_msg.edit_text(f"Got it — I've added **{file_name}** to my knowledge. I'll use it when it's relevant.", parse_mode=ParseMode.MARKDOWN)
+            await status_msg.edit_text(f"Added **{file_name}**.", parse_mode=ParseMode.MARKDOWN)
             
         except UnicodeDecodeError:
-            await status_msg.edit_text("❌ Error: File must be text-based (UTF-8).")
+            await status_msg.edit_text("Couldn't read that — needs to be a text file (UTF-8).")
         except Exception as e:
             logger.error(f"File upload error: {e}")
-            await status_msg.edit_text("❌ Error processing file.")
+            await status_msg.edit_text("Something went wrong processing the file.")
 
     async def setup_commands(self):
         """Set up bot commands menu"""
@@ -233,57 +226,36 @@ class MudrexBot:
     
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
-        welcome = """Hey! I'm **MudrexBot** — your **AI co-pilot** for the Mudrex API.
+        welcome = """Hey! I help with Mudrex API questions — auth, endpoints, errors, code examples.
 
-*I help with:*
-- API integration, auth, endpoints
-- Code debugging and fixes
-- Error troubleshooting
-- **Live data via MCP** (futures list, contract details) when you ask
-- MCP server setup
+Just ask your question or tag me with @.
 
-*How to use:*
-Ask your API question or tag me with @. I use the MCP server whenever your question needs live data (e.g. "list futures", "BTC contract details").
-
-*Commands:*
-/help - Full help
-/tools - MCP server tools list
-/mcp - MCP setup
-/listfutures - List futures (count)
-/endpoints - API endpoints (names only)
-
-I'm your co-pilot for the Mudrex API. 🚀"""
+/help — what I can do
+/endpoints — API endpoints
+/futures — list futures pairs"""
         
         await update.message.reply_text(welcome, parse_mode=ParseMode.MARKDOWN)
     
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
-        help_text = """*Mudrex API — AI co-pilot help*
-
-*What I do:*
-I'm an **AI co-pilot**: I use the **MCP server** whenever your question needs live data (e.g. list futures, contract details for BTC/ETH). I also use docs and RAG for how‑tos and errors.
-
-*I help with:*
-- API auth (X-Authentication only, no HMAC)
-- Endpoints, code examples (Python/JS)
-- Error debugging
-- **Live futures/contract data** via MCP when you ask
+        help_text = """*What I help with:*
+• API auth — just `X-Authentication`, no HMAC/signatures
+• Endpoints and code examples (Python/JS)
+• Error debugging (-1121, 404, etc.)
+• Live futures data when you ask
 
 *Example questions:*
-"List available futures" → I call MCP
-"Get BTC contract details" → I call MCP
-"How do I authenticate?" / "Error -1121?" → I use docs
+"How do I authenticate?"
+"What's error -1121?"
+"List futures"
+"Show me how to place an order"
 
 *Commands:*
-/tools - MCP server tools list
-/mcp - MCP setup
-/listfutures - List futures (count)
-/endpoints - API endpoints (names only)
-/stats - Bot info
+/endpoints — API endpoints list
+/futures — count of futures pairs
+/mcp — setup guide for Claude Desktop
 
-*MCP:* docs.trade.mudrex.com/docs/mcp
-
-For *personal* account data (positions, orders, balance), use Claude Desktop with MCP and your own API key."""
+For personal account data (positions, orders), use Claude Desktop with your own API key."""
         
         await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
     
@@ -291,7 +263,7 @@ For *personal* account data (positions, orders, balance), use Claude Desktop wit
         """Handle /stats command — admin only"""
         user_id = update.effective_user.id
         if not self._is_admin(user_id):
-            await update.message.reply_text(f"🚫 Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
             return
         stats = self.rag_pipeline.get_stats()
         
@@ -299,36 +271,31 @@ For *personal* account data (positions, orders, balance), use Claude Desktop wit
         
         auth_status = "Service Account" if self.mcp_client and self.mcp_client.is_authenticated() else "Not configured"
         
-        stats_text = f"""*Bot Stats (AI co-pilot)*
+        stats_text = f"""*Bot Stats*
 
 Model: {stats['model']}
-Docs: {stats['total_documents']} chunks
-MCP: {mcp_status} (used when you ask for futures/contracts)
-Auth: {auth_status}
-Mode: Group-only
-
-_AI co-pilot for the Mudrex API_"""
+Docs indexed: {stats['total_documents']}
+MCP: {mcp_status}
+Auth: {auth_status}"""
         
         await update.message.reply_text(stats_text, parse_mode=ParseMode.MARKDOWN)
     
     async def cmd_tools(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /tools command — MCP server tools list. Plain text to avoid Telegram Markdown parse errors."""
         tools_text = MudrexTools.get_tools_summary()
-        tools_text += "\n\nFor personal account data, use Claude Desktop with MCP.\n/mcp — MCP setup"
+        tools_text += "\n\nFor personal data (positions, orders), use Claude Desktop with your own API key.\n/mcp — setup guide"
         await update.message.reply_text(tools_text)
     
     async def cmd_mcp(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /mcp command"""
-        mcp_text = """*Mudrex MCP Setup Guide*
+        mcp_text = """*MCP Setup (Claude Desktop)*
 
-*What is MCP?*
-MCP lets AI assistants like Claude interact with your Mudrex account.
+MCP lets Claude interact with your Mudrex account directly.
 
-*Setup with Claude Desktop:*
-
-1. Install Node.js from nodejs.org
-2. Open Claude Desktop Settings > Developer > Edit Config
-3. Add this config:
+*Steps:*
+1. Install Node.js (nodejs.org)
+2. Claude Desktop → Settings → Developer → Edit Config
+3. Add:
 ```
 {
   "mcpServers": {
@@ -340,10 +307,10 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
   }
 }
 ```
-4. Get API secret from trade.mudrex.com
+4. Get your API secret from trade.mudrex.com
 5. Restart Claude Desktop
 
-*Full docs:* docs.trade.mudrex.com/docs/mcp"""
+Docs: docs.trade.mudrex.com/docs/mcp"""
         
         await update.message.reply_text(mcp_text, parse_mode=ParseMode.MARKDOWN)
     
@@ -420,7 +387,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         """
         user_id = update.effective_user.id
         if not self._is_admin(user_id):
-            await update.message.reply_text(f"🚫 Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
             return
 
         text = " ".join(context.args)
@@ -430,9 +397,9 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
 
         try:
             self.rag_pipeline.learn_text(text)
-            await update.message.reply_text("Noted. I've added that to my knowledge — I'll use it when it's relevant.", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text("Got it — I'll remember that.", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
-            await update.message.reply_text(f"❌ Error learning: {e}")
+            await update.message.reply_text(f"Couldn't save that: {e}")
 
     async def cmd_set_fact(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -441,7 +408,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         """
         user_id = update.effective_user.id
         if not self._is_admin(user_id):
-            await update.message.reply_text(f"🚫 Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
             return
 
         if len(context.args) < 2:
@@ -453,9 +420,9 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         
         try:
             self.rag_pipeline.set_fact(key, value)
-            await update.message.reply_text(f"✅ Fact Set: **{key}** = `{value}`", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Set **{key}** = `{value}`", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
-            await update.message.reply_text(f"❌ Error setting fact: {e}")
+            await update.message.reply_text(f"Couldn't set that: {e}")
 
     async def cmd_delete_fact(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -464,7 +431,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         """
         user_id = update.effective_user.id
         if not self._is_admin(user_id):
-            await update.message.reply_text(f"🚫 Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Admin only. Your ID: `{user_id}`", parse_mode=ParseMode.MARKDOWN)
             return
 
         if not context.args:
@@ -474,9 +441,9 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         key = context.args[0].upper()
         
         if self.rag_pipeline.delete_fact(key):
-            await update.message.reply_text(f"✅ Fact **{key}** deleted.", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Deleted **{key}**.", parse_mode=ParseMode.MARKDOWN)
         else:
-            await update.message.reply_text(f"⚠️ Fact **{key}** not found.", parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(f"Couldn't find **{key}**.", parse_mode=ParseMode.MARKDOWN)
 
     # ==================== MCP (AI co-pilot: use whenever needed) ====================
     
@@ -569,16 +536,16 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         # Rate limiting (per group)
         if not self.rate_limiter.is_allowed(chat_id):
             await update.message.reply_text(
-                "Slow down! Too many requests from this group. Try again in a minute."
+                "Whoa, too many messages at once. Give it a minute and try again."
             )
             return
         
         logger.info(f"Group message from {user_name} in {chat_id}: {message[:50]}... | mentioned={bot_mentioned} | api_related={is_api_related}")
         
-        # If tagged but not API-related, short redirect
+        # If tagged but not API-related, ask for clarification instead of dead-end redirect
         if bot_mentioned and not is_api_related:
             await update.message.reply_text(
-                "I'm here for API and REST help. What would you like to know?"
+                "What's going on? I can help with API errors, auth issues, code debugging — just give me some details."
             )
             return
         
@@ -621,7 +588,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         except Exception as e:
             logger.error(f"Error handling message: {e}", exc_info=True)
             await update.message.reply_text(
-                "Hit a snag there. Mind rephrasing your question?"
+                "That didn't work — try again? If it keeps failing, might be a temporary issue."
             )
     
     def _is_bot_mentioned(self, update: Update) -> bool:
@@ -678,7 +645,7 @@ MCP lets AI assistants like Claude interact with your Mudrex account.
         """Handle errors"""
         logger.error(f"Error: {context.error}", exc_info=context.error)
         if update and update.message:
-            await update.message.reply_text("Something went wrong. Try again?")
+            await update.message.reply_text("Hmm, that broke something. Mind trying again?")
     
     def run(self):
         """Start the bot (blocking)"""

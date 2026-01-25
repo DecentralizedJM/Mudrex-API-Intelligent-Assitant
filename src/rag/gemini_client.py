@@ -24,42 +24,40 @@ class GeminiClient:
     Uses google-genai package with genai.Client()
     """
     
-    # Bot personality - AI co-pilot, System Admin, expert in API and REST (Mudrex has no WebSocket/Webhook)
-    SYSTEM_INSTRUCTION = """You are **MudrexBot** — an **AI co-pilot** for the Mudrex API: a skilled System Admin and expert in API and REST.
+    # Bot personality - friendly Mudrex API helper (no WebSocket/Webhook)
+    SYSTEM_INSTRUCTION = """You help developers with the Mudrex Futures API. Friendly and direct — skip the fluff but don't be robotic.
 
 ## ROLE
-- **AI co-pilot**: Use **live data from MCP** whenever it is provided in the prompt (section "Live data (MCP)"). Prefer that over static docs when both exist. If MCP data is present, cite it and base your answer on it.
-- Expert in API design and REST. **Mudrex does NOT offer WebSocket or Webhook**; only REST. When asked about WebSockets or Webhooks, state clearly that they are not supported and suggest REST polling.
-- Polite, professional, no chitter-chatter. Helpful and concise; human, not robotic.
+- Use **live data from MCP** when provided (section "Live data (MCP)"). Prefer that over static docs.
+- **Mudrex does NOT have WebSocket or Webhook** — only REST. Be clear about this when asked; suggest polling instead.
 
-## CORE DIRECTIVES
-1. **NO HALLUCINATIONS**: Answer only from the **Relevant Documentation** below, **Knowledge Base**, **FactStore**, or explicit external search when used. Do not invent endpoints or behaviors.
-2. **For Mudrex-specific details** (endpoints, errors, behavior): use **only** the provided documentation and facts. If it's not there, say so and escalate.
-3. **DEBUG FIRST**: If logs or code are present, analyze them before answering.
-4. **TROUBLESHOOT WITH CODE**: When asked "how to", integration, or debugging, provide concrete code snippets (Python or JS). Use ```python or ```javascript. Include imports and comments for critical parts.
-5. **MUDREX SCOPE**: Explicitly state when something is supported vs not. E.g. "Mudrex does not have X; you can achieve similar with Y."
-6. **GENERAL API QUESTIONS**: Answer clearly. When it helps, explain benefits, use cases, and when to use what (concise "sales" clarity).
+## CORE RULES
+1. **Don't make stuff up.** Answer only from the docs, knowledge base, or MCP data provided. If it's not there, say so.
+2. **For Mudrex-specific stuff** (endpoints, errors, behavior): use only what's in the docs. If you don't have it, say "I don't have that in my docs" and tag @DecentralizedJM.
+3. **Debug first.** If they share logs or code, analyze that before answering.
+4. **Show code.** For "how to" questions, give Python or JS examples. Keep them simple and working.
+5. **Be honest about limits.** If Mudrex doesn't support something, say so clearly.
 
-## RESPONSE PROTOCOL
-- **If known (in context)**: Answer directly with facts and code when useful.
-- **If inferred**: Say "Based on similar endpoints..." and note it's an estimate.
-- **If unknown (Mudrex-specific, not in docs)**: "This isn't in my docs. [Brief restatement or best guess if any.] Correct me if I'm wrong — @DecentralizedJM, can you help?"
+## RESPONSE STYLE
+- **If you know it**: Answer directly. Include code when helpful.
+- **If you're not sure**: Say "I'm not 100% sure, but..." and be clear it's an estimate.
+- **If you don't know**: "I don't have that in my docs. @DecentralizedJM might know more."
 
-## MUDREX AUTH (STRICT — NEVER USE ANYTHING ELSE)
-- **Only** the header: `X-Authentication: <your_api_secret>`.
-- **Base URL**: `https://trade.mudrex.com/fapi/v1`.
-- **No** HMAC, **no** SHA256, **no** signature, **no** `X-MUDREX-API-KEY`, **no** `X-MUDREX-SIGNATURE`, **no** `X-MUDREX-TIMESTAMP`. Mudrex does **not** use any of these.
-- **Content-Type: application/json** only for POST/PATCH/DELETE; for GET it is optional.
-- In code examples, use only `requests.get(url, headers={"X-Authentication": "your_secret"})` or equivalent. Never add hmac, hashlib, or signature logic.
+Never guess at Mudrex-specific details. It's better to say "I don't know" than give wrong info.
 
-## KNOWLEDGE BASE (Errors & Limits)
-- **Rate limits**: 2 requests/second.
-- **Latency**: ~100–300 ms.
-- **Error -1121**: Invalid Symbol (use BTCUSDT, not BTC-USDT).
-- **Error -1022**: Signature Mismatch (check system clock and API secret).
+## MUDREX AUTH (important — don't get this wrong)
+- Header: `X-Authentication: <your_api_secret>`
+- Base URL: `https://trade.mudrex.com/fapi/v1`
+- No HMAC, no signatures, no timestamps. Just the one header.
+- `Content-Type: application/json` for POST/PATCH/DELETE.
 
-## DATA PRIVACY
-- Shared **Service Account** (public data only). No personal balances/orders."""
+## COMMON ERRORS
+- **-1121**: Invalid symbol. Use BTCUSDT, not BTC-USDT.
+- **-1022**: Auth issue. Check the API secret.
+- **Rate limit**: 2 requests/second.
+
+## PRIVACY
+This is a shared service account — public data only. No personal balances or orders."""
     
     def __init__(self):
         """Initialize Gemini client with NEW SDK"""
@@ -137,13 +135,30 @@ class GeminiClient:
             if re.search(pattern, message, re.IGNORECASE):
                 return True
         
+        # HTTP status codes and Mudrex error codes (High Priority for troubleshooting)
+        http_status_patterns = [
+            r'\b[45]\d{2}\b',       # 4xx and 5xx errors (404, 500, 401, etc.)
+            r'-\d{4}\b',            # Mudrex error codes like -1121, -1022
+            r'\bnot working\b',     # Common troubleshooting phrase
+            r'\bfailed\b',          # Connection/request failed
+            r'\btimeout\b',         # Timeout errors
+        ]
+        
+        for pattern in http_status_patterns:
+            if re.search(pattern, message, re.IGNORECASE):
+                logger.info("HTTP status or error pattern detected")
+                return True
+        
         # API and trading keywords
         # STRONG keywords (sufficient alone when msg length > 5)
         strong_keywords = [
             'mudrex', 'fapi', 'api', 'endpoint', 'webhook', 'websocket', 'mcp',
-            'x-authentication', 'auth', 'token', 'secret', 'jwt', 'key',  # key = API key in this context
+            'x-authentication', 'auth', 'token', 'secret', 'jwt', 'key',
             'btc', 'eth', 'usdt', 'futures', 'perpetual',
-            'rest', 'trade.mudrex.com', 'fapi/v1', 'http', 'https'
+            'rest', 'trade.mudrex.com', 'fapi/v1', 'http', 'https',
+            # Troubleshooting keywords
+            'status', 'response', 'connection', 'broken', 'issue', 'debug',
+            'unauthorized', 'forbidden', 'invalid'
         ]
         
         # WEAK keywords (need 2+ when no STRONG, to reduce false positives)
@@ -151,7 +166,8 @@ class GeminiClient:
             'price', 'order', 'trade', 'position', 'balance', 'margin',
             'leverage', 'liquidation', 'profit', 'loss', 'buy', 'sell',
             'long', 'short', 'market', 'limit', 'stop', 'error', 'bug',
-            'fix', 'help', 'code', 'python', 'javascript', 'rate', 'latency'
+            'fix', 'help', 'code', 'python', 'javascript', 'rate', 'latency',
+            'request', 'header', 'body', 'json', 'data'
         ]
         
         strong_count = sum(1 for kw in strong_keywords if kw in message_lower)
@@ -201,20 +217,20 @@ class GeminiClient:
             answer = response.text if response.text else ""
             
             if not answer:
-                return "What would you like to know about the Mudrex API? I can help with authentication, orders, positions, or MCP setup."
+                return "What do you need help with? Auth, endpoints, errors — just let me know."
             
             # Clean and format
             answer = self._clean_response(answer)
             
             # Truncate if too long
             if len(answer) > config.MAX_RESPONSE_LENGTH:
-                answer = answer[:config.MAX_RESPONSE_LENGTH - 100] + "\n\n_(Response truncated - ask a more specific question!)_"
+                answer = answer[:config.MAX_RESPONSE_LENGTH - 100] + "\n\n_(Cut short — ask something more specific?)_"
             
             return answer
             
         except Exception as e:
             logger.error(f"Error generating response: {e}", exc_info=True)
-            return "Hit a snag on my side (could be temporary). Try again in a moment—if it keeps happening, an admin can check the bot logs."
+            return "Something went wrong on my end — not your code. Try again in a sec?"
 
     def generate_response_with_grounding(
         self,
@@ -243,14 +259,14 @@ class GeminiClient:
             )
             answer = response.text if response.text else ""
             if not answer:
-                return "I couldn't find enough from the web for that. Try rephrasing or check the Mudrex API docs."
+                return "Couldn't find much on that. Can you give me more details or rephrase?"
             answer = self._clean_response(answer)
             if len(answer) > config.MAX_RESPONSE_LENGTH:
-                answer = answer[: config.MAX_RESPONSE_LENGTH - 100] + "\n\n_(Response truncated.)_"
+                answer = answer[: config.MAX_RESPONSE_LENGTH - 100] + "\n\n_(Cut short — ask something more specific?)_"
             return answer
         except Exception as e:
             logger.error(f"Error in grounded response: {e}", exc_info=True)
-            return "Hit a snag on my side (could be temporary). Try again in a moment—if it keeps happening, an admin can check the bot logs."
+            return "Something went wrong on my end — not your code. Try again in a sec?"
     
     def _build_prompt(
         self,
@@ -368,19 +384,19 @@ class GeminiClient:
         
         responses = {
             'greeting': [
-                "Hey! What API question can I help with?",
-                "Hi there! Got an API question?",
-                "Hey! Need help with the Mudrex API?",
+                "What's up?",
+                "Hey — what do you need help with?",
+                "Yo, what's the issue?",
             ],
             'thanks': [
-                "Happy to help! Let me know if you need anything else.",
-                "Anytime! More questions? I'm here.",
-                "You got it! Ping me if you get stuck.",
+                "No problem!",
+                "Sure thing.",
+                "Glad that helped.",
             ],
             'acknowledgment': [
-                "Let me know if you need more help!",
-                "Cool! I'm here if you have more questions.",
-                "Got it! Anything else?",
+                "Let me know if you need anything else.",
+                "Cool, just ping me if something comes up.",
+                "Got it.",
             ],
         }
         

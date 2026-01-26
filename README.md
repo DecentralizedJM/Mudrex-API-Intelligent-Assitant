@@ -8,7 +8,13 @@ A **GROUP-ONLY** generic Telegram bot for private API traders community. Helps d
 
 ## Features
 
-- **RAG-Powered Answers**: Uses Gemini AI with retrieval-augmented generation for accurate API documentation responses
+- **Advanced RAG-Powered Answers**: Uses Gemini AI with state-of-the-art RAG techniques (inspired by [RAG_Techniques](https://github.com/NirDiamant/RAG_Techniques)) for accurate, hallucination-free API documentation responses
+  - Document relevancy validation (Reliable RAG)
+  - LLM-based reranking for improved quality
+  - Query transformation for better retrieval
+  - Iterative retrieval with query refinement
+  - Context-based responses (no generic web knowledge)
+- **Hallucination Prevention**: Validates document relevancy before use, uses only Mudrex documentation, and provides honest "I don't know" responses when information isn't available
 - **MCP Integration**: Can access public/general information (like listing futures contracts)
 - **Group-Only Mode**: Only responds when mentioned/tagged in groups, rejects DMs
 - **Community Focus**: Designed for API traders group discussions - feedback, coding help, errors
@@ -94,15 +100,25 @@ python3 main.py
 │  (Junior Dev + Community Admin personality)             │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │         Advanced RAG Pipeline                   │  │
+│  │  1. Initial Retrieval                           │  │
+│  │  2. Iterative Retrieval (query transformation)  │  │
+│  │  3. Low-Threshold Search (context gathering)    │  │
+│  │  4. Document Relevancy Validation (Reliable)   │  │
+│  │  5. LLM-based Reranking                         │  │
+│  │  6. Context-Based Response (no Google Search)   │  │
+│  └──────────────────────────────────────────────────┘  │
+│         │                                               │
 │  ┌──────────────┐    ┌──────────────┐    ┌───────────┐  │
-│  │  RAG Pipeline│    │  MCP Client  │    │  Gemini   │  │
-│  │  (Docs Query)│    │  (Live Data) │    │  (AI)     │  │
+│  │ Vector Store │    │  MCP Client  │    │  Gemini   │  │
+│  │ (Embeddings) │    │  (Live Data) │    │  (AI)     │  │
 │  └──────────────┘    └──────────────┘    └───────────┘  │
 │         │                   │                 │         │
 │         ▼                   ▼                 │         │
 │  ┌──────────────┐    ┌──────────────┐         │         │
-│  │ Vector Store │    │ Mudrex API   │◄────────┘         │
-│  │ (Embeddings) │    │ (Read-Only)  │                   │
+│  │   Docs/FAQs  │    │ Mudrex API   │◄────────┘         │
+│  │  (Knowledge) │    │ (Read-Only)  │                   │
 │  └──────────────┘    └──────────────┘                   │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
@@ -133,6 +149,32 @@ python3 main.py
 ├── requirements.txt
 └── .env.example
 ```
+
+## Advanced RAG Pipeline
+
+The bot uses a sophisticated multi-stage RAG pipeline inspired by [RAG_Techniques](https://github.com/NirDiamant/RAG_Techniques) to prevent hallucinations and improve accuracy:
+
+### Pipeline Flow
+
+1. **Initial Retrieval**: Standard vector similarity search with threshold filtering
+2. **Iterative Retrieval**: If no docs found, transforms query (step-back prompting, query expansion) and retries (max 2 iterations)
+3. **Low-Threshold Search**: If still empty, searches with lower threshold (0.30) for broader context
+4. **Document Relevancy Validation** (Reliable RAG): Uses Gemini to score if retrieved docs actually answer the query (filters out irrelevant docs with score < 0.6)
+5. **LLM-based Reranking**: Reranks documents by relevance using Gemini for better quality
+6. **Context-Based Response**: Generates response using only validated Mudrex documentation (no Google Search, no generic web knowledge)
+
+### Techniques Applied
+
+- **Reliable RAG**: Validates document relevancy before use
+- **Reranking**: LLM-based scoring improves document quality
+- **Query Transformations**: Step-back prompting and query expansion improve retrieval
+- **Iterative Retrieval**: Multiple retrieval rounds with query refinement
+- **Context Enrichment**: Low-threshold search for broader context
+- **Hallucination Prevention**: Only uses Mudrex docs, honest "I don't know" responses
+
+### Template Responses
+
+For known missing features (e.g., TradingView integrations, webhooks), the bot provides friendly roadmap responses instead of guessing.
 
 ## MCP Integration
 
@@ -179,9 +221,14 @@ The bot acts as a **Junior Dev + Community Admin**:
 | `TELEGRAM_BOT_TOKEN` | Yes | - | Telegram bot token |
 | `GEMINI_API_KEY` | Yes | - | Google Gemini API key |
 | `MUDREX_API_SECRET` | No | - | Mudrex API key (read-only) |
-| `GEMINI_MODEL` | No | gemini-2.5-flash-preview-05-20 | Gemini model |
+| `GEMINI_MODEL` | No | gemini-3-flash-preview | Gemini model |
 | `MCP_ENABLED` | No | true | Enable MCP integration |
 | `ALLOWED_CHAT_IDS` | No | - | Restrict to specific chats |
+| `SIMILARITY_THRESHOLD` | No | 0.45 | Vector similarity threshold for retrieval |
+| `CONTEXT_SEARCH_THRESHOLD` | No | 0.30 | Lower threshold for context gathering when no high-similarity docs found |
+| `RELEVANCY_THRESHOLD` | No | 0.6 | Minimum relevancy score to use a document (Reliable RAG) |
+| `RERANK_TOP_K` | No | 5 | Number of top documents after reranking |
+| `MAX_ITERATIVE_RETRIEVAL` | No | 2 | Maximum iterations for iterative retrieval with query transformation |
 
 ## Development
 

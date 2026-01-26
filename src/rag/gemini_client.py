@@ -167,7 +167,9 @@ This is a shared service account — public data only. No personal balances or o
             'status', 'response', 'connection', 'broken', 'issue', 'debug',
             'unauthorized', 'forbidden', 'invalid',
             # Error-related (moved from weak - these are clearly API help requests)
-            'error', 'errors', 'bug', 'fix', 'help'
+            'error', 'errors', 'bug', 'fix', 'help',
+            # URL and dashboard keywords
+            'url', 'dashboard', 'web url', 'website', 'access url', 'www.mudrex.com'
         ]
         
         # WEAK keywords (need 2+ when no STRONG, to reduce false positives)

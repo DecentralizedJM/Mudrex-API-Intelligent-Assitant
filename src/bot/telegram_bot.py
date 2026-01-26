@@ -397,8 +397,18 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
 
         try:
             self.rag_pipeline.learn_text(text)
-            await update.message.reply_text("Got it — I'll remember that.", parse_mode=ParseMode.MARKDOWN)
+            # Check if changelog watcher is enabled (warns about daily clearing)
+            from ..config import config
+            if getattr(config, "ENABLE_CHANGELOG_WATCHER", True):
+                await update.message.reply_text(
+                    "Got it — I'll remember that.\n\n"
+                    "⚠️ Note: Daily job clears learned content. For permanent storage, add to `docs/` directory.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                await update.message.reply_text("Got it — I'll remember that.", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
+            logger.error(f"Error learning text: {e}", exc_info=True)
             await update.message.reply_text(f"Couldn't save that: {e}")
 
     async def cmd_set_fact(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -197,16 +197,58 @@ class RAGPipeline:
         }
 
     def learn_text(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
-        """Learn new unstructured text (Admin only). Chunks long text. Optional metadata (e.g. source, filename)."""
+        """
+        Learn new unstructured text (Admin only). Chunks long text. Optional metadata (e.g. source, filename).
+        
+        Note: If ENABLE_CHANGELOG_WATCHER is true, learned content will be cleared during daily re-ingestion.
+        For permanent storage, add content to docs/ directory instead.
+        """
         base = metadata or {}
-        if len(text) > 1500:
-            chunks = self.document_loader.chunk_document(text, chunk_size=1000, overlap=200)
+        base['source'] = base.get('source', 'admin_learn')
+        base['learned'] = True  # Mark as learned content
+        
+        # Enhance text for better retrieval: add keywords for common queries
+        enhanced_text = self._enhance_learned_text(text)
+        
+        if len(enhanced_text) > 1500:
+            chunks = self.document_loader.chunk_document(enhanced_text, chunk_size=1000, overlap=200)
             metadatas = [dict(base, chunk_index=i, total_chunks=len(chunks)) for i in range(len(chunks))]
             self.vector_store.add_documents(chunks, metadatas, None)
             logger.info(f"Learned {len(chunks)} chunks ({len(text)} chars)")
         else:
-            self.vector_store.add_documents([text], [base], None)
+            self.vector_store.add_documents([enhanced_text], [base], None)
             logger.info(f"Learned new text: {text[:50]}...")
+    
+    def _enhance_learned_text(self, text: str) -> str:
+        """
+        Enhance learned text with keywords to improve retrieval.
+        Adds common query variations for URLs, dashboard, web access, etc.
+        """
+        text_lower = text.lower()
+        enhanced = text
+        
+        # If text contains a URL, add common query variations
+        if 'http' in text_lower or 'www.' in text_lower or '.com' in text_lower:
+            # Extract URL if present
+            import re
+            url_match = re.search(r'(https?://[^\s]+|www\.[^\s]+)', text)
+            if url_match:
+                url = url_match.group(1)
+                # Add variations that users might ask
+                variations = [
+                    f"Dashboard URL: {url}",
+                    f"Web URL: {url}",
+                    f"API trading URL: {url}",
+                    f"Access URL: {url}",
+                    f"Website: {url}",
+                ]
+                enhanced = f"{text}\n\n" + "\n".join(variations)
+        
+        # If text mentions "dashboard", add URL-related keywords
+        if 'dashboard' in text_lower:
+            enhanced = f"{enhanced}\n\nKeywords: dashboard URL, web URL, API dashboard, trading dashboard, access URL"
+        
+        return enhanced
 
     def set_fact(self, key: str, value: str) -> None:
         """Set a strict fact (Admin only)"""

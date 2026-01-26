@@ -223,6 +223,7 @@ class RAGPipeline:
         """
         Enhance learned text with keywords to improve retrieval.
         Adds common query variations for URLs, dashboard, web access, etc.
+        Distinguishes between web dashboard URLs and API base URLs.
         """
         text_lower = text.lower()
         enhanced = text
@@ -234,19 +235,46 @@ class RAGPipeline:
             url_match = re.search(r'(https?://[^\s]+|www\.[^\s]+)', text)
             if url_match:
                 url = url_match.group(1)
-                # Add variations that users might ask
-                variations = [
-                    f"Dashboard URL: {url}",
-                    f"Web URL: {url}",
-                    f"API trading URL: {url}",
-                    f"Access URL: {url}",
-                    f"Website: {url}",
-                ]
-                enhanced = f"{text}\n\n" + "\n".join(variations)
+                
+                # Determine if it's a web dashboard URL or API base URL
+                is_api_url = 'trade.mudrex.com' in url or '/fapi/' in url or '/api/' in url
+                is_dashboard_url = 'www.mudrex.com' in url or 'pro-trading' in url
+                
+                if is_dashboard_url:
+                    # Web dashboard URL variations
+                    variations = [
+                        f"Dashboard URL: {url}",
+                        f"Web URL: {url}",
+                        f"API trading URL: {url}",
+                        f"Access URL: {url}",
+                        f"Website: {url}",
+                        f"Web dashboard: {url}",
+                        f"Browser URL: {url}",
+                    ]
+                    enhanced = f"{text}\n\n" + "\n".join(variations)
+                elif is_api_url:
+                    # API base URL variations
+                    variations = [
+                        f"API base URL: {url}",
+                        f"REST API URL: {url}",
+                        f"API endpoint: {url}",
+                        f"API base endpoint: {url}",
+                    ]
+                    enhanced = f"{text}\n\n" + "\n".join(variations)
+                else:
+                    # Generic URL - add both types of variations
+                    variations = [
+                        f"URL: {url}",
+                        f"Web URL: {url}",
+                        f"Dashboard URL: {url}",
+                    ]
+                    enhanced = f"{text}\n\n" + "\n".join(variations)
         
         # If text mentions "dashboard", add URL-related keywords
-        if 'dashboard' in text_lower:
-            enhanced = f"{enhanced}\n\nKeywords: dashboard URL, web URL, API dashboard, trading dashboard, access URL"
+        if 'dashboard' in text_lower and 'www.mudrex.com' in text_lower:
+            enhanced = f"{enhanced}\n\nKeywords: dashboard URL, web URL, API dashboard, trading dashboard, access URL, browser URL"
+        elif 'dashboard' in text_lower:
+            enhanced = f"{enhanced}\n\nKeywords: dashboard URL, web URL, API dashboard"
         
         return enhanced
 

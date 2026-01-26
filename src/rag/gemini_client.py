@@ -51,6 +51,12 @@ Never guess at Mudrex-specific details. It's better to say "I don't know" than g
 - No HMAC, no signatures, no timestamps. Just the one header.
 - `Content-Type: application/json` for POST/PATCH/DELETE.
 
+## MUDREX URLS (important distinction)
+- **Web Dashboard URL** (for accessing API trading in browser): `www.mudrex.com/pro-trading`
+- **REST API Base URL** (for making API calls): `https://trade.mudrex.com/fapi/v1`
+- When users ask for "web URL", "dashboard URL", or "API trading URL", they mean the web dashboard: `www.mudrex.com/pro-trading`
+- When users ask for "API endpoint", "base URL", or "REST API URL", they mean: `https://trade.mudrex.com/fapi/v1`
+
 ## COMMON ERRORS
 - **-1121**: Invalid symbol. Use BTCUSDT, not BTC-USDT.
 - **-1022**: Auth issue. Check the API secret.

@@ -17,6 +17,12 @@ from ..config import config
 
 logger = logging.getLogger(__name__)
 
+# Import cache (avoid circular import)
+try:
+    from .cache import RedisCache
+except ImportError:
+    RedisCache = None
+
 
 class GeminiClient:
     """
@@ -82,6 +88,9 @@ This is a shared service account — public data only. No personal balances or o
         self.client = genai.Client()
         self.model_name = config.GEMINI_MODEL
         self.temperature = 0.1 # Low temperature for strict factual answers
+        
+        # Initialize cache if available
+        self.cache = RedisCache() if (config.REDIS_ENABLED and RedisCache) else None
         
         logger.info(f"Initialized Gemini client (new SDK): {self.model_name}")
     
@@ -273,6 +282,19 @@ This is a shared service account — public data only. No personal balances or o
         validated_docs = []
         
         for doc in documents:
+            # Check cache first
+            if self.cache:
+                cached = self.cache.get_validation(query, doc)
+                if cached:
+                    if cached.get('relevant', False) and cached.get('score', 0) >= config.RELEVANCY_THRESHOLD:
+                        doc['relevancy_score'] = cached.get('score', 0)
+                        validated_docs.append(doc)
+                        logger.debug(f"Document validated (cached): score={cached.get('score', 0):.2f}")
+                    else:
+                        logger.debug(f"Document filtered out (cached): score={cached.get('score', 0):.2f}")
+                    continue  # Skip Gemini call
+            
+            # Call Gemini for validation
             doc_text = doc.get('document', '')[:1000]  # Limit for validation prompt
             validation_prompt = f"""Does this document answer the user's question?
 
@@ -297,6 +319,10 @@ Score 0.0-1.0 based on how well the document answers the question. Only return t
                 )
                 import json
                 result = json.loads(response.text)
+                
+                # Cache the result
+                if self.cache:
+                    self.cache.set_validation(query, doc, result)
                 
                 if result.get('relevant', False) and result.get('score', 0) >= config.RELEVANCY_THRESHOLD:
                     doc['relevancy_score'] = result.get('score', 0)
@@ -339,6 +365,19 @@ Score 0.0-1.0 based on how well the document answers the question. Only return t
         if len(documents) <= top_k:
             return documents
         
+        # Check cache first
+        if self.cache:
+            cached_indices = self.cache.get_rerank(query, documents)
+            if cached_indices:
+                # Reorder documents using cached indices
+                ranked_docs = []
+                for idx in cached_indices[:top_k]:
+                    if 0 <= idx < len(documents):
+                        ranked_docs.append(documents[idx])
+                if ranked_docs:
+                    logger.info(f"Reranked {len(ranked_docs)} documents (cached)")
+                    return ranked_docs
+        
         # Create a prompt to score all documents
         doc_list = []
         for i, doc in enumerate(documents):
@@ -366,6 +405,10 @@ Return ONLY a JSON array of document indices (0-based) sorted by relevance (most
             )
             import json
             ranked_indices = json.loads(response.text)
+            
+            # Cache the result
+            if self.cache:
+                self.cache.set_rerank(query, documents, ranked_indices)
             
             # Reorder documents based on ranking
             ranked_docs = []
@@ -396,6 +439,13 @@ Return ONLY a JSON array of document indices (0-based) sorted by relevance (most
         Returns:
             Transformed query
         """
+        # Check cache first
+        if self.cache:
+            cached = self.cache.get_transform(query)
+            if cached:
+                logger.info(f"Query transformed (cached): '{query}' -> '{cached}'")
+                return cached
+        
         transform_prompt = f"""Transform this query to improve document retrieval for a Mudrex Futures API documentation search.
 
 Original Query: {query}
@@ -419,6 +469,9 @@ Return ONLY the transformed query, nothing else."""
             transformed = response.text.strip()
             if transformed and len(transformed) > 5:
                 logger.info(f"Query transformed: '{query}' -> '{transformed}'")
+                # Cache the result
+                if self.cache:
+                    self.cache.set_transform(query, transformed)
                 return transformed
         except Exception as e:
             logger.warning(f"Error transforming query: {e}")

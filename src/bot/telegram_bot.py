@@ -278,6 +278,18 @@ Docs indexed: {stats['total_documents']}
 MCP: {mcp_status}
 Auth: {auth_status}"""
         
+        # Add cache statistics if available
+        if self.rag_pipeline.cache:
+            cache_stats = self.rag_pipeline.cache.get_stats()
+            if cache_stats.get('enabled'):
+                cache_status = "Connected" if cache_stats.get('connected') else "Not connected"
+                hit_rate = cache_stats.get('hit_rate', 0.0)
+                hits = cache_stats.get('hits', 0)
+                misses = cache_stats.get('misses', 0)
+                stats_text += f"\n\n*Cache*: {cache_status}"
+                if cache_stats.get('connected'):
+                    stats_text += f"\nHit rate: {hit_rate:.1f}% ({hits} hits, {misses} misses)"
+        
         await update.message.reply_text(stats_text, parse_mode=ParseMode.MARKDOWN)
     
     async def cmd_tools(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

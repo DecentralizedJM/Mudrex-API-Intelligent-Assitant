@@ -11,6 +11,7 @@ from .vector_store import VectorStore
 from .gemini_client import GeminiClient
 from .document_loader import DocumentLoader
 from .fact_store import FactStore
+from .cache import RedisCache
 from ..config import config
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class RAGPipeline:
         self.gemini_client = GeminiClient()
         self.document_loader = DocumentLoader()
         self.fact_store = FactStore()
+        self.cache = RedisCache() if config.REDIS_ENABLED else None
         logger.info("RAG Pipeline initialized")
     
     def ingest_documents(self, docs_directory: str) -> int:
@@ -88,7 +90,14 @@ class RAGPipeline:
         # NOTE: is_api_related check is now done in telegram_bot.py (handle_message)
         # Pipeline should always process what gets to it after that gatekeeper check
         
-        # 2. Initial retrieval
+        # 2. Check response cache first
+        if self.cache:
+            cached = self.cache.get_response(question, chat_history, mcp_context)
+            if cached:
+                logger.info("Cache hit: returning cached response")
+                return cached
+        
+        # 3. Initial retrieval
         logger.info(f"Processing query: {question[:50]}...")
         retrieved_docs = self.vector_store.search(question, top_k=top_k)
         
@@ -100,27 +109,27 @@ class RAGPipeline:
         else:
             logger.info("No docs retrieved above threshold")
         
-        # 3. If empty, try iterative retrieval with query transformation
+        # 4. If empty, try iterative retrieval with query transformation
         if not retrieved_docs:
             logger.info("No docs found; trying iterative retrieval with query transformation")
             retrieved_docs = self._iterative_retrieval(question, top_k=top_k)
         
-        # 4. If still empty, use low-threshold search for context
+        # 5. If still empty, use low-threshold search for context
         if not retrieved_docs:
             logger.info("Trying low-threshold search for context")
             retrieved_docs = self.vector_store.search_all_relevant(question, top_k=10)
         
-        # 5. Validate document relevancy (Reliable RAG)
+        # 6. Validate document relevancy (Reliable RAG)
         if retrieved_docs:
             logger.info(f"Validating relevancy of {len(retrieved_docs)} documents")
             retrieved_docs = self.gemini_client.validate_document_relevancy(question, retrieved_docs)
         
-        # 6. Rerank documents for better quality
+        # 7. Rerank documents for better quality
         if retrieved_docs:
             logger.info(f"Reranking {len(retrieved_docs)} documents")
             retrieved_docs = self.gemini_client.rerank_documents(question, retrieved_docs)
         
-        # 7. Generate response
+        # 8. Generate response
         if retrieved_docs:
             # Generate response with validated and reranked docs
             answer = self.gemini_client.generate_response(
@@ -146,11 +155,17 @@ class RAGPipeline:
             )
             sources = [{'filename': 'Context Search (no docs)', 'similarity': 0.0}]
         
-        return {
+        result = {
             'answer': answer,
             'sources': sources,
             'is_relevant': True
         }
+        
+        # Cache the response
+        if self.cache:
+            self.cache.set_response(question, chat_history, mcp_context, result)
+        
+        return result
     
     def _iterative_retrieval(
         self,

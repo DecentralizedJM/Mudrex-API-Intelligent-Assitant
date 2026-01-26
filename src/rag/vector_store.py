@@ -19,6 +19,12 @@ from ..config import config
 
 logger = logging.getLogger(__name__)
 
+# Import cache (avoid circular import)
+try:
+    from .cache import RedisCache
+except ImportError:
+    RedisCache = None
+
 
 class VectorStore:
     """Manages document storage and retrieval using simple file-based vector storage"""
@@ -36,6 +42,9 @@ class VectorStore:
         
         # Initialize new Gemini client for embeddings
         self.client = genai.Client()
+        
+        # Initialize cache if available
+        self.cache = RedisCache() if (config.REDIS_ENABLED and RedisCache) else None
         
         # Load existing database or create new
         if self.db_file.exists():
@@ -69,6 +78,13 @@ class VectorStore:
     
     def _get_embedding(self, text: str, retries: int = 1) -> List[float]:
         """Get embedding for text using NEW Gemini SDK with retry logic"""
+        # Check cache first
+        if self.cache:
+            cached = self.cache.get_embedding(text)
+            if cached:
+                logger.debug("Embedding cache hit")
+                return cached
+        
         import time
         for attempt in range(retries + 1):
             try:
@@ -77,7 +93,13 @@ class VectorStore:
                     model=config.EMBEDDING_MODEL,
                     contents=text,
                 )
-                return result.embeddings[0].values
+                embedding = result.embeddings[0].values
+                
+                # Cache the embedding
+                if self.cache:
+                    self.cache.set_embedding(text, embedding)
+                
+                return embedding
             except Exception as e:
                 if attempt < retries:
                     logger.warning(f"Embedding retry {attempt + 1}/{retries}: {e}")

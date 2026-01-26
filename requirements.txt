@@ -31,3 +31,6 @@ httpx>=0.27.0
 
 # Scheduler (daily changelog watcher + docs scrape)
 apscheduler>=3.10.0
+
+# Redis Caching (for reducing Gemini token usage)
+redis>=5.0.0

@@ -67,6 +67,15 @@ class Config:
     RERANK_TOP_K: int = 5  # Top K documents after reranking
     MAX_ITERATIVE_RETRIEVAL: int = 2  # Max iterations for iterative retrieval
     
+    # Redis Caching (for reducing Gemini token usage)
+    REDIS_ENABLED: bool = True
+    REDIS_URL: str = ""  # Will come from Railway REDIS_URL env var
+    REDIS_TTL_RESPONSE: int = 86400  # 24 hours
+    REDIS_TTL_VALIDATION: int = 604800  # 7 days
+    REDIS_TTL_RERANK: int = 604800  # 7 days
+    REDIS_TTL_TRANSFORM: int = 604800  # 7 days
+    REDIS_TTL_EMBEDDING: int = 2592000  # 30 days
+    
     # Changelog watcher (daily scrape + broadcast to ALLOWED_CHAT_IDS)
     ENABLE_CHANGELOG_WATCHER: bool = True
     CHANGELOG_CRON_HOUR: int = 2  # 2 AM UTC
@@ -143,6 +152,15 @@ class Config:
             RELEVANCY_THRESHOLD=float(os.getenv("RELEVANCY_THRESHOLD", "0.6")),
             RERANK_TOP_K=int(os.getenv("RERANK_TOP_K", "5")),
             MAX_ITERATIVE_RETRIEVAL=int(os.getenv("MAX_ITERATIVE_RETRIEVAL", "2")),
+            
+            # Redis Caching
+            REDIS_ENABLED=os.getenv("REDIS_ENABLED", "true").lower() == "true",
+            REDIS_URL=os.getenv("REDIS_URL", ""),  # Railway provides this automatically
+            REDIS_TTL_RESPONSE=int(os.getenv("REDIS_TTL_RESPONSE", "86400")),
+            REDIS_TTL_VALIDATION=int(os.getenv("REDIS_TTL_VALIDATION", "604800")),
+            REDIS_TTL_RERANK=int(os.getenv("REDIS_TTL_RERANK", "604800")),
+            REDIS_TTL_TRANSFORM=int(os.getenv("REDIS_TTL_TRANSFORM", "604800")),
+            REDIS_TTL_EMBEDDING=int(os.getenv("REDIS_TTL_EMBEDDING", "2592000")),
         )
     
     def validate(self) -> List[str]:

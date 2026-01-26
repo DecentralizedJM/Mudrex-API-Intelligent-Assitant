@@ -134,17 +134,24 @@ class RedisCache:
     def get_response(self, query: str, chat_history: Optional[List[Dict[str, str]]] = None,
                     mcp_context: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get cached response for query"""
-        query_hash = self._hash_text(query)
-        context_hash = self._hash_context(chat_history, mcp_context)
-        key = f"response:{query_hash}:{context_hash}"
+        if not self.connected or not self.redis_client:
+            return None
         
-        cached = self._get(key)
-        if cached:
-            try:
-                return json.loads(cached)
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse cached response for {key}")
-                return None
+        try:
+            query_hash = self._hash_text(query)
+            context_hash = self._hash_context(chat_history, mcp_context)
+            key = f"response:{query_hash}:{context_hash}"
+            
+            cached = self._get(key)
+            if cached:
+                try:
+                    return json.loads(cached)
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse cached response for {key}")
+                    return None
+        except Exception as e:
+            logger.warning(f"Error getting cached response: {e}")
+            return None
         return None
     
     def set_response(self, query: str, chat_history: Optional[List[Dict[str, str]]] = None,

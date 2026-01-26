@@ -92,10 +92,13 @@ class RAGPipeline:
         
         # 2. Check response cache first
         if self.cache:
-            cached = self.cache.get_response(question, chat_history, mcp_context)
-            if cached:
-                logger.info("Cache hit: returning cached response")
-                return cached
+            try:
+                cached = self.cache.get_response(question, chat_history, mcp_context)
+                if cached:
+                    logger.info("Cache hit: returning cached response")
+                    return cached
+            except Exception as e:
+                logger.warning(f"Cache get error (continuing without cache): {e}")
         
         # 3. Initial retrieval
         logger.info(f"Processing query: {question[:50]}...")
@@ -163,7 +166,10 @@ class RAGPipeline:
         
         # Cache the response
         if self.cache:
-            self.cache.set_response(question, chat_history, mcp_context, result)
+            try:
+                self.cache.set_response(question, chat_history, mcp_context, result)
+            except Exception as e:
+                logger.warning(f"Cache set error (non-critical): {e}")
         
         return result
     

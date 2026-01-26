@@ -158,15 +158,17 @@ This is a shared service account — public data only. No personal balances or o
             'rest', 'trade.mudrex.com', 'fapi/v1', 'http', 'https',
             # Troubleshooting keywords
             'status', 'response', 'connection', 'broken', 'issue', 'debug',
-            'unauthorized', 'forbidden', 'invalid'
+            'unauthorized', 'forbidden', 'invalid',
+            # Error-related (moved from weak - these are clearly API help requests)
+            'error', 'errors', 'bug', 'fix', 'help'
         ]
         
         # WEAK keywords (need 2+ when no STRONG, to reduce false positives)
         weak_keywords = [
             'price', 'order', 'trade', 'position', 'balance', 'margin',
             'leverage', 'liquidation', 'profit', 'loss', 'buy', 'sell',
-            'long', 'short', 'market', 'limit', 'stop', 'error', 'bug',
-            'fix', 'help', 'code', 'python', 'javascript', 'rate', 'latency',
+            'long', 'short', 'market', 'limit', 'stop',
+            'code', 'python', 'javascript', 'rate', 'latency',
             'request', 'header', 'body', 'json', 'data'
         ]
         
@@ -217,7 +219,7 @@ This is a shared service account — public data only. No personal balances or o
             answer = response.text if response.text else ""
             
             if not answer:
-                return "What do you need help with? Auth, endpoints, errors — just let me know."
+                return "I don't have a specific answer for that. Can you share more details — like the endpoint you're hitting, the error code, or your code?"
             
             # Clean and format
             answer = self._clean_response(answer)

@@ -512,19 +512,25 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
         user_name = update.effective_user.first_name
         message = update.message.text
         
-        # Check if bot is mentioned/tagged
+        # Check if bot is mentioned/tagged or replied to
         bot_mentioned = self._is_bot_mentioned(update)
+        
+        # Check if this is a reply to the bot's message (continuation - always process)
+        is_reply_to_bot = (
+            update.message.reply_to_message and 
+            update.message.reply_to_message.from_user and 
+            update.message.reply_to_message.from_user.is_bot
+        )
         
         # Check if message is API-related
         is_api_related = self.rag_pipeline.gemini_client.is_api_related_query(message)
         
-
-        
         # Respond if:
-        # 1. Bot is mentioned/tagged (always respond)
-        # 2. Message is clearly API-related (smart detection)
+        # 1. Reply to bot's message (always respond - conversation continuation)
+        # 2. Bot is mentioned/tagged (always respond)
+        # 3. Message is clearly API-related (smart detection)
         # Otherwise, silently ignore
-        if not bot_mentioned and not is_api_related:
+        if not is_reply_to_bot and not bot_mentioned and not is_api_related:
             logger.debug(f"Not mentioned and not API-related, ignoring message from {user_name}")
             return
         
@@ -540,12 +546,13 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
             )
             return
         
-        logger.info(f"Group message from {user_name} in {chat_id}: {message[:50]}... | mentioned={bot_mentioned} | api_related={is_api_related}")
+        logger.info(f"Group message from {user_name} in {chat_id}: {message[:50]}... | reply_to_bot={is_reply_to_bot} | mentioned={bot_mentioned} | api_related={is_api_related}")
         
-        # If tagged but not API-related, ask for clarification instead of dead-end redirect
-        if bot_mentioned and not is_api_related:
+        # If tagged (not reply) and not API-related, ask for specific details
+        # But if it's a reply to the bot, always process it (continuation)
+        if bot_mentioned and not is_reply_to_bot and not is_api_related:
             await update.message.reply_text(
-                "What's going on? I can help with API errors, auth issues, code debugging — just give me some details."
+                "What's the error code or message you're seeing? Or share the code/request you're using."
             )
             return
         

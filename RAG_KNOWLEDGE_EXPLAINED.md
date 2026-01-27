@@ -65,7 +65,7 @@ Project Root/
 
 **Storage Type**: File-based (pickle format)
 
-**Embedding Model**: `models/text-embedding-004` (Gemini)
+**Embedding Model**: `models/gemini-embedding-001` (Gemini)
 
 ---
 

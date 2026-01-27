@@ -40,7 +40,7 @@ class Config:
     CHROMA_COLLECTION_NAME: str = "mudrex_api_docs"
     
     # RAG Settings
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     TOP_K_RESULTS: int = 5
     SIMILARITY_THRESHOLD: float = 0.55  # Slightly lower for better recall
     
@@ -129,7 +129,7 @@ class Config:
             CHROMA_COLLECTION_NAME=os.getenv("CHROMA_COLLECTION_NAME", "mudrex_api_docs"),
             
             # RAG
-            EMBEDDING_MODEL=os.getenv("EMBEDDING_MODEL", "models/text-embedding-004"),
+            EMBEDDING_MODEL=os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001"),
             TOP_K_RESULTS=int(os.getenv("TOP_K_RESULTS", "5")),
             SIMILARITY_THRESHOLD=float(os.getenv("SIMILARITY_THRESHOLD", "0.45")),
             

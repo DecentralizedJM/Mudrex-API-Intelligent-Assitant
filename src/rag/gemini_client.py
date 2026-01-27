@@ -729,6 +729,22 @@ Return ONLY a JSON array of document indices (0-based) sorted by relevance (most
                         break
                 except Exception as api_error:
                     error_str = str(api_error)
+                    _report_gemini_error(api_error, {"method": "rerank_documents", "attempt": attempt + 1, "error_type": "ClientError"})
+                    # Check if it's a 503 or rate limit error
+                    if '503' in error_str or 'UNAVAILABLE' in error_str or 'overloaded' in error_str.lower():
+                        if attempt < max_retries:
+                            wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                            logger.warning(f"Gemini overloaded (503) for reranking, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries + 1})")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            logger.warning(f"Gemini still overloaded after {max_retries + 1} attempts, using similarity order")
+                            break
+                    else:
+                        # Other errors - break and fall back
+                        break
+                except Exception as api_error:
+                    error_str = str(api_error)
                     _report_gemini_error(api_error, {"method": "rerank_documents", "attempt": attempt + 1})
                     # Check if it's a 503 or rate limit error
                     if '503' in error_str or 'UNAVAILABLE' in error_str or 'overloaded' in error_str.lower():

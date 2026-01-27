@@ -16,6 +16,17 @@ from ..config import config
 
 logger = logging.getLogger(__name__)
 
+# Import context manager and semantic memory (optional)
+try:
+    from .context_manager import ContextManager
+except ImportError:
+    ContextManager = None
+
+try:
+    from .semantic_memory import SemanticMemory
+except ImportError:
+    SemanticMemory = None
+
 
 class RAGPipeline:
     """Coordinates the RAG workflow"""
@@ -27,6 +38,11 @@ class RAGPipeline:
         self.document_loader = DocumentLoader()
         self.fact_store = FactStore()
         self.cache = RedisCache() if config.REDIS_ENABLED else None
+        
+        # Initialize context management (optional)
+        self.context_manager = ContextManager() if ContextManager else None
+        self.semantic_memory = SemanticMemory() if SemanticMemory else None
+        
         logger.info("RAG Pipeline initialized")
     
     def ingest_documents(self, docs_directory: str) -> int:
@@ -63,6 +79,7 @@ class RAGPipeline:
         chat_history: Optional[List[Dict[str, str]]] = None,
         top_k: int = None,
         mcp_context: Optional[str] = None,
+        chat_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Process a query through the RAG pipeline.
@@ -100,19 +117,45 @@ class RAGPipeline:
             except Exception as e:
                 logger.warning(f"Cache get error (continuing without cache): {e}")
 
+        # 2.5. Get enhanced context (if context manager available)
+        enhanced_context = None
+        semantic_memories = []
+        if self.context_manager and chat_id:
+            enhanced_context = self.context_manager.get_context(
+                chat_id=str(chat_id),
+                query=question,
+                include_recent=5,
+                include_memories=True
+            )
+            semantic_memories = enhanced_context.get('memories', [])
+            
+            # Use enhanced history if available
+            if enhanced_context.get('history'):
+                chat_history = enhanced_context['history']
+                if enhanced_context.get('summary'):
+                    # Prepend summary to history
+                    chat_history = [
+                        {'role': 'system', 'content': enhanced_context['summary']}
+                    ] + chat_history
+        
         # 3. Domain classification: Mudrex-specific vs generic trading/system-design
         domain = self.gemini_client.classify_query_domain(question)
         if domain == "generic_trading":
             logger.info("Domain classified as generic_trading; using generic trading persona without Mudrex docs")
+            
+            # Include semantic memories in context if available
+            if semantic_memories:
+                memory_context = "\n\nRelevant context from previous conversations:\n"
+                memory_context += "\n".join([
+                    f"- {mem.get('content', '')}" for mem in semantic_memories[:3]
+                ])
+                # Prepend to question
+                question = memory_context + "\n\nUser question: " + question
+            
             answer = self.gemini_client.generate_generic_trading_answer(
                 question,
                 chat_history,
             )
-            result = {
-                'answer': answer,
-                'sources': [{'filename': 'Generic trading knowledge (non-Mudrex-specific)', 'similarity': 1.0}],
-                'is_relevant': True,
-            }
 
             # Cache generic responses as well (saves tokens for repeated design questions)
             if self.cache:
@@ -156,12 +199,21 @@ class RAGPipeline:
         
         # 9. Generate response
         if retrieved_docs:
+            # Include semantic memories in mcp_context if available
+            enhanced_mcp_context = mcp_context or ""
+            if semantic_memories:
+                memory_context = "\n\nRelevant context from previous conversations:\n"
+                memory_context += "\n".join([
+                    f"- {mem.get('content', '')}" for mem in semantic_memories[:3]
+                ])
+                enhanced_mcp_context = memory_context + "\n\n" + (mcp_context or "")
+            
             # Generate response with validated and reranked docs
             answer = self.gemini_client.generate_response(
                 question,
                 retrieved_docs,
                 chat_history,
-                mcp_context,
+                enhanced_mcp_context if enhanced_mcp_context else None,
             )
             
             # Extract sources
@@ -175,8 +227,18 @@ class RAGPipeline:
         else:
             # No docs found - use context search (no Google Search)
             logger.info("No relevant docs found; using context search without Google Search")
+            
+            # Include semantic memories if available
+            enhanced_mcp_context = mcp_context or ""
+            if semantic_memories:
+                memory_context = "\n\nRelevant context from previous conversations:\n"
+                memory_context += "\n".join([
+                    f"- {mem.get('content', '')}" for mem in semantic_memories[:3]
+                ])
+                enhanced_mcp_context = memory_context + "\n\n" + (mcp_context or "")
+            
             answer = self.gemini_client.generate_response_with_context_search(
-                question, [], chat_history, mcp_context
+                question, [], chat_history, enhanced_mcp_context if enhanced_mcp_context else None
             )
             sources = [{'filename': 'Context Search (no docs)', 'similarity': 0.0}]
         

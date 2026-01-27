@@ -161,6 +161,13 @@ class Config:
             REDIS_TTL_RERANK=int(os.getenv("REDIS_TTL_RERANK", "604800")),
             REDIS_TTL_TRANSFORM=int(os.getenv("REDIS_TTL_TRANSFORM", "604800")),
             REDIS_TTL_EMBEDDING=int(os.getenv("REDIS_TTL_EMBEDDING", "2592000")),
+            
+            # Context Management
+            MAX_HISTORY_MESSAGES=int(os.getenv("MAX_HISTORY_MESSAGES", "15")),
+            CONTEXT_COMPRESS_THRESHOLD=int(os.getenv("CONTEXT_COMPRESS_THRESHOLD", "20")),
+            MAX_TOKENS_PER_MESSAGE=int(os.getenv("MAX_TOKENS_PER_MESSAGE", "200")),
+            REDIS_TTL_SESSION=int(os.getenv("REDIS_TTL_SESSION", "2592000")),  # 30 days
+            REDIS_TTL_MEMORY=int(os.getenv("REDIS_TTL_MEMORY", "2592000")),  # 30 days
         )
     
     def validate(self) -> List[str]:

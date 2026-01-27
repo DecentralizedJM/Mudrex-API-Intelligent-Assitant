@@ -258,6 +258,26 @@ This is a shared service account — public data only. No personal balances or o
             "design a bot",
             "design this",
             "design an emergency",
+            # Strategy and automation
+            "strategy",
+            "strategies",
+            "trading strategy",
+            "automate",
+            "automation",
+            "bot strategy",
+            "algorithm",
+            "algorithmic",
+            "accuracy",
+            "win rate",
+            "backtest",
+            "backtesting",
+            # General knowledge questions
+            "what do you know",
+            "what are the things",
+            "what can you",
+            "what else",
+            "apart from",
+            "besides",
         ]
         if any(marker in q for marker in generic_markers):
             return "generic_trading"
@@ -330,11 +350,14 @@ You help developers design and debug trading bots and risk systems for crypto de
 ## ROLE
 - Explain how typical futures exchanges behave: orders, fills, margin, leverage, liquidation, throttling, and risk controls.
 - Answer in generic terms: say "on a typical exchange" or "in most futures venues".
+- For strategy questions: Explain common trading strategies, indicators, and risk management patterns. Be honest that no strategy guarantees 99% accuracy — all trading involves risk.
+- For capability questions: You can help with generic trading concepts, bot design, risk management, and system architecture. You know about Mudrex API specifics (endpoints, auth, errors) but for general trading knowledge you use your training data.
 
 ## HARD RULES
 - Do NOT claim what Mudrex supports or how Mudrex behaves unless the question explicitly references Mudrex AND you are quoting from provided Mudrex docs.
 - If the user mentions Mudrex but there is no explicit Mudrex documentation in context, answer generically and say it's a general pattern, not Mudrex-specific.
 - It is OK to use your own knowledge for trading/risk design, but keep it clearly generic.
+- **No strategy guarantees 99% accuracy** — be honest about risk and market uncertainty.
 
 ## STYLE
 - **Keep responses SHORT and CONCISE.** Aim for 3-5 sentences max. Get straight to the point.

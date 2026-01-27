@@ -83,12 +83,14 @@ This is a shared service account — public data only. No personal balances or o
 - If truly nothing relevant: "I don't have that in my Mudrex docs. Can you share more details, or @DecentralizedJM might know?"
 - **Never use generic web knowledge or guess** - only use what's in the provided documentation.
 
-## CRITICAL: LEGACY DOCUMENTATION WARNING
+## CRITICAL: LEGACY DOCUMENTATION WARNING (INTERNAL - DO NOT MENTION TO USERS)
 - **NEVER mix legacy docs with current API**: If a document mentions base URL `https://api.mudrex.com/api/v1`, it is LEGACY and does NOT apply to the current Futures API.
 - **Current API base URL is ALWAYS**: `https://trade.mudrex.com/fapi/v1`
 - **If you see endpoints in legacy docs (like /klines, /ticker, /depth) that are NOT in current API docs, DO NOT claim they exist.**
 - **Before claiming an endpoint exists, verify it's documented for the CURRENT API base URL (`https://trade.mudrex.com/fapi/v1`), not the legacy one.**
-- **If an endpoint is only in legacy docs, say: "I don't have that endpoint in my current Mudrex Futures API docs. The legacy API had it, but it's not available in the current Futures API."**
+- **If an endpoint is only in legacy docs, say SIMPLY: "I don't have that endpoint in my Mudrex Futures API docs. If you need this feature, @DecentralizedJM might know more."**
+- **NEVER mention "legacy API" or "legacy docs" to users - just say it's not available. Keep responses simple and helpful.**
+- **Always complete the @DecentralizedJM tag - never cut it off.**
 - **NEVER make up endpoints or claim they exist based on industry standards or legacy documentation.**"""
     
     def __init__(self):

@@ -689,11 +689,18 @@ Return ONLY a JSON array of document indices (0-based) sorted by relevance (most
 
 Original Query: {query}
 
-Generate a better search query that:
-1. Uses broader terms if the query is too specific
-2. Adds relevant synonyms (e.g., "endpoint" -> "API endpoint", "route")
-3. Expands abbreviations (e.g., "auth" -> "authentication")
-4. Keeps the core intent but makes it more likely to match documentation
+Analyze the query and:
+1. **Extract core intent**: What is the user really asking about?
+2. **Identify indirect questions**: If the question is indirect, rewrite it more directly
+3. **Break down complex questions**: If it's multi-part, extract the main API-related part
+4. **Add synonyms**: "endpoint" -> "API endpoint", "route", "endpoint"
+5. **Expand abbreviations**: "auth" -> "authentication", "SL" -> "stop loss"
+6. **Add context**: If it's about implementation, add "how to" or "API" keywords
+
+Examples:
+- "my bot is broken" -> "API error troubleshooting debugging"
+- "how do I automate this" -> "API automation order placement implementation"
+- "something wrong with orders" -> "order API error troubleshooting"
 
 Return ONLY the transformed query, nothing else."""
         
@@ -809,9 +816,9 @@ Return ONLY the transformed query, nothing else."""
         # Build prompt with low-similarity docs (if any)
         prompt = self._build_prompt(query, low_similarity_docs, chat_history, mcp_context)
         
-        # Add explicit instruction for no-docs case
+        # For no-docs case, use smart fallback with Gemini's knowledge
         if not low_similarity_docs:
-            prompt += "\n\n## IMPORTANT: No relevant documentation found.\nYou MUST respond: 'I don't have that in my Mudrex docs. Can you share more details, or @DecentralizedJM might know?'\nDO NOT use general API knowledge or guess."
+            return self._generate_smart_fallback(query, chat_history, mcp_context)
         
         try:
             response = self.client.models.generate_content(
@@ -838,6 +845,80 @@ Return ONLY the transformed query, nothing else."""
         except Exception as e:
             logger.error(f"Error in context search response: {e}", exc_info=True)
             return "Something went wrong on my end — not your code. Try again in a sec?"
+    
+    def _generate_smart_fallback(
+        self,
+        query: str,
+        chat_history: Optional[List[Dict[str, str]]] = None,
+        mcp_context: Optional[str] = None,
+    ) -> str:
+        """
+        Generate helpful response using Gemini's knowledge when no Mudrex docs found.
+        Clearly marks as generic/non-Mudrex knowledge.
+        """
+        # Check for missing features first
+        template_response = self._get_missing_feature_response(query)
+        if template_response:
+            return template_response
+        
+        # Build context-aware prompt
+        parts = []
+        if chat_history:
+            history = self._format_history(chat_history[-3:])  # Last 3 messages
+            parts.append(f"Recent conversation:\n{history}")
+        if mcp_context:
+            parts.append(f"Live data context:\n{mcp_context}")
+        
+        context_str = "\n\n".join(parts) if parts else ""
+        
+        fallback_prompt = f"""The user asked: "{query}"
+
+{context_str}
+
+## Situation
+This question isn't covered in the Mudrex API documentation I have access to. However, as an API Copilot, I should still try to help using general API/trading knowledge.
+
+## Your Task
+Provide a helpful response that:
+1. **Acknowledges** this isn't in Mudrex docs
+2. **Helps anyway** using general knowledge/patterns
+3. **Shows code** if it's an implementation question
+4. **Marks as generic** - clearly state this is general knowledge, not Mudrex-specific
+5. **Offers Mudrex help** - suggest checking Mudrex docs or asking @DecentralizedJM for Mudrex-specific details
+
+## Response Style
+- 2-4 sentences + code snippet (if applicable)
+- Start with: "This isn't in my Mudrex docs, but..."
+- Provide working code examples for implementation questions
+- Keep it practical and code-focused
+
+Generate a helpful response:"""
+        
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=fallback_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction="You are an API Copilot. Help developers with code and implementation, even when you don't have specific documentation. Always provide code examples for implementation questions.",
+                    temperature=0.4,
+                    max_output_tokens=config.GEMINI_MAX_TOKENS,
+                )
+            )
+            
+            answer = response.text if response.text else ""
+            if not answer:
+                return "I don't have that in my Mudrex docs. Can you share more details, or @DecentralizedJM might know?"
+            
+            answer = self._clean_response(answer)
+            
+            # Ensure it acknowledges it's not from Mudrex docs
+            if "mudrex" not in answer.lower()[:100] and "docs" not in answer.lower()[:100]:
+                answer = f"This isn't in my Mudrex docs, but {answer.lower()}"
+            
+            return answer
+        except Exception as e:
+            logger.error(f"Error in smart fallback: {e}", exc_info=True)
+            return "I don't have that in my Mudrex docs. Can you share more details, or @DecentralizedJM might know?"
     
     def _build_prompt(
         self,

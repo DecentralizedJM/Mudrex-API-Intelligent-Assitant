@@ -7,6 +7,8 @@ Licensed under MIT License - See LICENSE file for details.
 import logging
 from typing import List, Dict, Any, Optional
 
+from google.genai import types
+
 from .vector_store import VectorStore
 from .gemini_client import GeminiClient
 from .document_loader import DocumentLoader
@@ -187,15 +189,25 @@ class RAGPipeline:
         else:
             logger.info("No docs retrieved above threshold")
         
-        # 5. If empty, try iterative retrieval with query transformation
+        # 5. If empty, try iterative retrieval with query transformation (handles indirect/difficult questions)
         if not retrieved_docs:
-            logger.info("No docs found; trying iterative retrieval with query transformation")
+            logger.info("No docs found; trying iterative retrieval with enhanced query transformation")
             retrieved_docs = self._iterative_retrieval(question, top_k=top_k)
         
         # 6. If still empty, use low-threshold search for context
         if not retrieved_docs:
             logger.info("Trying low-threshold search for context")
             retrieved_docs = self.vector_store.search_all_relevant(question, top_k=10)
+        
+        # 6.5. If still empty, try query decomposition for complex questions
+        if not retrieved_docs and len(question.split()) > 8:  # Complex/long questions
+            logger.info("Trying query decomposition for complex question")
+            decomposed = self._decompose_query(question)
+            if decomposed and decomposed != question:
+                logger.info(f"Decomposed query: '{question}' -> '{decomposed}'")
+                retrieved_docs = self.vector_store.search(decomposed, top_k=top_k)
+                if not retrieved_docs:
+                    retrieved_docs = self.vector_store.search_all_relevant(decomposed, top_k=10)
         
         # 7. Validate document relevancy (Reliable RAG)
         if retrieved_docs:
@@ -303,6 +315,53 @@ class RAGPipeline:
         
         logger.info(f"No docs found after {max_iterations} iterations")
         return []
+    
+    def _decompose_query(self, question: str) -> str:
+        """
+        Decompose complex/indirect questions into simpler, more direct API-related queries.
+        
+        Args:
+            question: Complex or indirect question
+            
+        Returns:
+            Simplified, direct query focused on API aspects
+        """
+        decompose_prompt = f"""Break down this complex or indirect question into a simpler, direct API-related query.
+
+Original Question: {question}
+
+Extract the core API-related intent:
+1. If it's about implementation/automation → Focus on "how to" + API keywords
+2. If it's about errors/issues → Focus on error type + API keywords  
+3. If it's indirect (e.g., "my bot is broken") → Rewrite as direct API question
+4. If it's multi-part → Extract the main API question
+
+Examples:
+- "my bot keeps crashing when placing orders" → "order placement API error troubleshooting"
+- "how do I make this work automatically" → "API automation order placement"
+- "something is wrong with authentication" → "authentication API error"
+
+Return ONLY the simplified query, nothing else."""
+        
+        try:
+            response = self.gemini_client.client.models.generate_content(
+                model=self.gemini_client.model_name,
+                contents=decompose_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2,
+                    max_output_tokens=100
+                )
+            )
+            
+            if response and response.text:
+                decomposed = response.text.strip()
+                # Remove quotes if present
+                decomposed = decomposed.strip('"\'')
+                return decomposed
+        except Exception as e:
+            logger.warning(f"Error decomposing query: {e}")
+        
+        return question  # Fallback to original
     
     def get_stats(self) -> Dict[str, Any]:
         """Get pipeline statistics"""

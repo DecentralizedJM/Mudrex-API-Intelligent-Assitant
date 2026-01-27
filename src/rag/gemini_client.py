@@ -81,7 +81,15 @@ This is a shared service account — public data only. No personal balances or o
 - If the question is about a feature not in docs (e.g., TradingView integrations), use the template response
 - Template: "I don't have [feature] info in my Mudrex docs, but it's on our roadmap. Our devs are working on it — stay tuned!"
 - If truly nothing relevant: "I don't have that in my Mudrex docs. Can you share more details, or @DecentralizedJM might know?"
-- **Never use generic web knowledge or guess** - only use what's in the provided documentation."""
+- **Never use generic web knowledge or guess** - only use what's in the provided documentation.
+
+## CRITICAL: LEGACY DOCUMENTATION WARNING
+- **NEVER mix legacy docs with current API**: If a document mentions base URL `https://api.mudrex.com/api/v1`, it is LEGACY and does NOT apply to the current Futures API.
+- **Current API base URL is ALWAYS**: `https://trade.mudrex.com/fapi/v1`
+- **If you see endpoints in legacy docs (like /klines, /ticker, /depth) that are NOT in current API docs, DO NOT claim they exist.**
+- **Before claiming an endpoint exists, verify it's documented for the CURRENT API base URL (`https://trade.mudrex.com/fapi/v1`), not the legacy one.**
+- **If an endpoint is only in legacy docs, say: "I don't have that endpoint in my current Mudrex Futures API docs. The legacy API had it, but it's not available in the current Futures API."**
+- **NEVER make up endpoints or claim they exist based on industry standards or legacy documentation.**"""
     
     def __init__(self):
         """Initialize Gemini client with NEW SDK"""
@@ -955,9 +963,24 @@ Generate a helpful response:"""
             return "No specific documentation found."
         
         formatted = []
+        legacy_warning_added = False
+        
         for i, doc in enumerate(documents[:5], 1):  # Max 5 docs
             source = doc.get('metadata', {}).get('filename', 'docs')
             content = doc.get('document', '')[:800]  # Limit each doc
+            
+            # Check if this is legacy documentation (old API base URL)
+            is_legacy = (
+                'https://api.mudrex.com/api/v1' in content or
+                'api.mudrex.com/api/v1' in content or
+                'legacy' in source.lower() or
+                'LEGACY' in content[:200]  # Check first 200 chars for legacy warning
+            )
+            
+            if is_legacy and not legacy_warning_added:
+                formatted.append("⚠️ WARNING: Some documents below are from the LEGACY API (https://api.mudrex.com/api/v1) and do NOT apply to the current Futures API (https://trade.mudrex.com/fapi/v1). Do NOT claim endpoints from legacy docs exist in the current API.")
+                legacy_warning_added = True
+            
             formatted.append(f"[{source}]\n{content}")
         
         return "\n\n".join(formatted)

@@ -1,6 +1,20 @@
-# Mudrex Market Data API
+# ⚠️ LEGACY DOCUMENTATION - DO NOT USE ⚠️
 
-## Base URL
+**THIS DOCUMENTATION IS FOR THE OLD MUDREX API AND IS NO LONGER VALID.**
+
+**Current Mudrex Futures API Base URL:** `https://trade.mudrex.com/fapi/v1`
+
+**This file documents the OLD API at:** `https://api.mudrex.com/api/v1` which is **NOT the current Futures API**.
+
+**The endpoints in this file (including /klines) do NOT exist in the current Mudrex Futures API.**
+
+Do NOT use this documentation for the current API. Refer to the official docs at https://docs.trade.mudrex.com
+
+---
+
+# Mudrex Market Data API (LEGACY - DEPRECATED)
+
+## Base URL (OLD - DO NOT USE)
 ```
 https://api.mudrex.com/api/v1
 ```

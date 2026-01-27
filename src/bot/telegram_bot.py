@@ -8,7 +8,7 @@ Licensed under MIT License
 """
 import logging
 import re
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List
 from collections import defaultdict
 import time
 
@@ -657,18 +657,75 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
         
         return False
     
+    def _split_message(self, text: str, max_length: int = 4000) -> List[str]:
+        """
+        Split long messages into chunks that fit within Telegram's limit.
+        Tries to split at paragraph boundaries (double newlines) or sentence boundaries.
+        """
+        if len(text) <= max_length:
+            return [text]
+        
+        chunks = []
+        remaining = text
+        
+        while len(remaining) > max_length:
+            # Try to split at paragraph boundary (double newline)
+            para_split = remaining.rfind('\n\n', 0, max_length)
+            if para_split > max_length * 0.5:  # Only use if we get at least 50% of max_length
+                chunks.append(remaining[:para_split + 2].strip())
+                remaining = remaining[para_split + 2:].strip()
+                continue
+            
+            # Try to split at single newline
+            newline_split = remaining.rfind('\n', 0, max_length)
+            if newline_split > max_length * 0.5:
+                chunks.append(remaining[:newline_split + 1].strip())
+                remaining = remaining[newline_split + 1:].strip()
+                continue
+            
+            # Try to split at sentence boundary (period + space)
+            sentence_split = remaining.rfind('. ', 0, max_length)
+            if sentence_split > max_length * 0.5:
+                chunks.append(remaining[:sentence_split + 2].strip())
+                remaining = remaining[sentence_split + 2:].strip()
+                continue
+            
+            # Last resort: hard split at max_length
+            chunks.append(remaining[:max_length].strip())
+            remaining = remaining[max_length:].strip()
+        
+        if remaining:
+            chunks.append(remaining)
+        
+        return chunks
+    
     async def _send_response(self, update: Update, response: str):
-        """Send response with markdown fallback"""
-        try:
-            await update.message.reply_text(
-                response,
-                parse_mode=ParseMode.MARKDOWN,
-                disable_web_page_preview=True
-            )
-        except Exception:
-            # Strip markdown if parsing fails
-            plain = response.replace('*', '').replace('_', '').replace('`', '')
-            await update.message.reply_text(plain, disable_web_page_preview=True)
+        """Send response with markdown fallback, splitting long messages"""
+        max_length = config.MAX_RESPONSE_LENGTH
+        chunks = self._split_message(response, max_length)
+        
+        for i, chunk in enumerate(chunks):
+            try:
+                # Add continuation indicator for multi-part messages
+                if len(chunks) > 1:
+                    if i == 0:
+                        chunk = f"{chunk}\n\n_..._"
+                    elif i < len(chunks) - 1:
+                        chunk = f"_..._\n\n{chunk}\n\n_..._"
+                    else:
+                        chunk = f"_..._\n\n{chunk}"
+                
+                await update.message.reply_text(
+                    chunk,
+                    parse_mode=ParseMode.MARKDOWN,
+                    disable_web_page_preview=True
+                )
+            except Exception:
+                # Strip markdown if parsing fails
+                plain = chunk.replace('*', '').replace('_', '').replace('`', '')
+                # Remove continuation markers if markdown failed
+                plain = plain.replace('...', '')
+                await update.message.reply_text(plain, disable_web_page_preview=True)
     
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""

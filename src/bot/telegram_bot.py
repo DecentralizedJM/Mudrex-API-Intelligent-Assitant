@@ -595,6 +595,13 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
         else:
             cleaned_message = message.strip()
         
+        # Handle empty message after stripping mention (just a tag with no content)
+        if bot_mentioned and not is_reply_to_bot and not cleaned_message:
+            await update.message.reply_text(
+                "Hey! What do you need help with? Ask me about the API, endpoints, errors, or code examples."
+            )
+            return
+        
         # Lightweight handling for pure greetings when tagged (no RAG, no Gemini call)
         if bot_mentioned and not is_reply_to_bot:
             lower_clean = cleaned_message.lower()

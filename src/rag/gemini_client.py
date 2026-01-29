@@ -900,6 +900,10 @@ Return ONLY the transformed query, nothing else."""
             'trading view': "I don't have TradingView integration info in my Mudrex docs, but it's on our roadmap. Our devs are working on it — stay tuned!",
             'webhook': "Mudrex doesn't support webhooks yet — only REST APIs. It's on our roadmap though!",
             'websocket': "Mudrex doesn't support WebSockets — only REST APIs. Use REST polling for real-time-like data.",
+            # Trade ideas / signals — community broadcaster (no REST "signals" endpoint on Mudrex trade API)
+            'trade ideas': "There’s no trade-ideas endpoint on the Mudrex trade API. For signals, use the community broadcaster: when signals are published, a WebSocket streams them. Install the SDK to receive and execute them: https://github.com/DecentralizedJM/TIA-Service-Broadcaster",
+            'signals': "There’s no signals endpoint on the Mudrex trade API. For trade ideas/signals, use the community broadcaster — when signals are published, a WebSocket streams them. Install the SDK to receive and execute: https://github.com/DecentralizedJM/TIA-Service-Broadcaster",
+            'signal': "For trade ideas/signals, use the community broadcaster — WebSocket streams when signals are published. Install the SDK to receive and execute: https://github.com/DecentralizedJM/TIA-Service-Broadcaster",
         }
         
         for keyword, response in missing_features.items():

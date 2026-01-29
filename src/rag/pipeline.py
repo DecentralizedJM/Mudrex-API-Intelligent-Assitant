@@ -119,6 +119,16 @@ class RAGPipeline:
             except Exception as e:
                 logger.warning(f"Cache get error (continuing without cache): {e}")
 
+        # 2.4. Trade ideas / signals — fixed template (no REST endpoint on Mudrex trade API)
+        trade_ideas_response = self.gemini_client._get_missing_feature_response(question)
+        if trade_ideas_response and any(kw in question.lower() for kw in ("trade ideas", "signals", "signal")):
+            logger.info("Using template response for trade ideas/signals")
+            return {
+                "answer": trade_ideas_response,
+                "sources": [{"filename": "Community resources (trade ideas/signals)", "similarity": 1.0}],
+                "is_relevant": True,
+            }
+
         # 2.5. Get enhanced context (if context manager available)
         enhanced_context = None
         semantic_memories = []

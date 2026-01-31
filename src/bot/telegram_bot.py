@@ -275,21 +275,26 @@ class MudrexBot:
         # Only react when *our* bot was added (not some other chat_member update)
         if result.new_chat_member.user.id != context.bot.id:
             return
-        diff = result.difference()
-        status_change = diff.get("status")
-        if not status_change:
+        # Access control: skip unauthorized groups (consistent with handle_message)
+        if config.ALLOWED_CHAT_IDS and chat.id not in config.ALLOWED_CHAT_IDS:
+            logger.info(f"Skipping intro for unauthorized group: {chat.id}")
             return
-        old_status, new_status = status_change
+        old_member = result.old_chat_member
+        new_member = result.new_chat_member
+        old_status = old_member.status
+        new_status = new_member.status
+        # Check membership directly from chat member objects, not from diff
+        # (diff only includes fields that changed, which can miss is_member when status changes)
         was_member = old_status in (
             ChatMember.MEMBER,
             ChatMember.OWNER,
             ChatMember.ADMINISTRATOR,
-        ) or (old_status == ChatMember.RESTRICTED and diff.get("is_member", (None, None))[0] is True)
+        ) or (old_status == ChatMember.RESTRICTED and getattr(old_member, 'is_member', False) is True)
         is_member = new_status in (
             ChatMember.MEMBER,
             ChatMember.OWNER,
             ChatMember.ADMINISTRATOR,
-        ) or (new_status == ChatMember.RESTRICTED and diff.get("is_member", (None, None))[1] is True)
+        ) or (new_status == ChatMember.RESTRICTED and getattr(new_member, 'is_member', False) is True)
         if was_member or not is_member:
             return
         try:

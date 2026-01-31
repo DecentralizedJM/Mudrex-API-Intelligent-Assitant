@@ -3,16 +3,8 @@
 import asyncio
 import sys
 
-# Same intro as in telegram_bot.py
-GROUP_INTRO_MESSAGE = """Hi community! 👋
-
-I'm your **Mudrex API copilot**. You can:
-• Ask me questions about the API — auth, endpoints, errors, code examples
-• Tag me with @ when you need help in the group
-• Use /help to see what I can do
-• Use /endpoints for API endpoints, /listfutures for futures count
-
-Just mention me or reply to my messages to get started."""
+# Import from the canonical source to avoid duplication
+from src.bot.telegram_bot import GROUP_INTRO_MESSAGE
 
 
 async def main():

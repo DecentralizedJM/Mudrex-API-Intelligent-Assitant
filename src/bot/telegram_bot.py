@@ -64,6 +64,32 @@ def _user_shared_api_secret(message: str) -> bool:
     return False
 
 
+def _extract_shared_api_secret(message: str) -> Optional[str]:
+    """
+    Try to extract the API secret the user pasted.
+    Looks for phrases like "api secret is" or "api key is" and returns the first non-empty line after it.
+    """
+    if not message:
+        return None
+    lower = message.lower()
+    markers = ["api secret is", "api key is", "my api secret", "my api key"]
+    pos = -1
+    for m in markers:
+        idx = lower.find(m)
+        if idx != -1:
+            pos = idx + len(m)
+            break
+    if pos == -1:
+        return None
+    # Get the substring after the marker and look for the first non-empty line
+    tail = message[pos:]
+    for line in tail.splitlines():
+        candidate = line.strip()
+        if candidate:
+            return candidate
+    return None
+
+
 class RateLimiter:
     """Simple rate limiter for group messages"""
     
@@ -724,6 +750,24 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
             await update.message.reply_text(
                 "Whoa, too many messages at once. Give it a minute and try again."
             )
+            return
+
+        # If user pasted their API secret, return deterministic connection snippet + warning
+        shared_secret = _extract_shared_api_secret(cleaned_message)
+        if shared_secret:
+            snippet = (
+                "To connect, use the X-Authentication header with your API secret. "
+                "Here is a snippet to verify your connection by fetching account details.\n\n"
+                "import requests\n\n"
+                'BASE_URL = "https://trade.mudrex.com/fapi/v1"\n'
+                "headers = {\n"
+                f' \"X-Authentication\": \"{shared_secret}\"\n'
+                "}\n\n"
+                "response = requests.get(f\"{BASE_URL}/account\", headers=headers)\n"
+                "print(response.json())"
+            )
+            answer = f"{snippet}\n\n{API_KEY_EXPOSED_WARNING}"
+            await self._send_response(update, answer)
             return
         
         logger.info(f"[REACTIVE] {user_name} in {chat_id}: {message[:50]}... | reply_to_bot={is_reply_to_bot} | mentioned={bot_mentioned} | quote_mention={is_quote_with_mention}")

@@ -46,7 +46,7 @@ Just mention me or reply to my messages to get started."""
 # Warning to append when user has shared their API secret in the chat
 API_KEY_EXPOSED_WARNING = (
     "⚠️ **Your API key is now exposed.** Please rotate or revoke it immediately in the "
-    "Mudrex API dashboard: https://www.mudrex.com/pro-trading/api-keys. Do not use this key anymore."
+    "API Management Dashboard. Do not use this key anymore."
 )
 
 
@@ -758,13 +758,15 @@ Docs: docs.trade.mudrex.com/docs/mcp"""
             snippet = (
                 "To connect, use the X-Authentication header with your API secret. "
                 "Here is a snippet to verify your connection by fetching account details.\n\n"
+                "```python\n"
                 "import requests\n\n"
                 'BASE_URL = "https://trade.mudrex.com/fapi/v1"\n'
                 "headers = {\n"
-                f' \"X-Authentication\": \"{shared_secret}\"\n'
+                f' "X-Authentication": "{shared_secret}"\n'
                 "}\n\n"
-                "response = requests.get(f\"{BASE_URL}/account\", headers=headers)\n"
-                "print(response.json())"
+                'response = requests.get(f"{BASE_URL}/account", headers=headers)\n'
+                "print(response.json())\n"
+                "```"
             )
             answer = f"{snippet}\n\n{API_KEY_EXPOSED_WARNING}"
             await self._send_response(update, answer)

@@ -107,7 +107,7 @@ class GeminiClient:
 
 ## WHEN USER SHARES API SECRET
 - If the user's message contains what looks like a shared API secret (e.g. they pasted their key or said "my API secret is ..." or "api key is ..."), you MUST end your response with this warning (include it verbatim):
-  "⚠️ **Your API key is now exposed.** Please rotate or revoke it immediately in the Mudrex API dashboard: https://www.mudrex.com/pro-trading/api-keys. Do not use this key anymore."
+  "⚠️ **Your API key is now exposed.** Please rotate or revoke it immediately in the API Management Dashboard. Do not use this key anymore."
 - Give the connection/code help first, then add this warning. Do not skip the warning when they have shared their key."""
     
     def __init__(self):

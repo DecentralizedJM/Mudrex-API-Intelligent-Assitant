@@ -45,8 +45,8 @@ Just mention me or reply to my messages to get started."""
 
 # Warning to append when user has shared their API secret in the chat
 API_KEY_EXPOSED_WARNING = (
-    "⚠️ **Your API key is now exposed.** Please rotate or revoke it immediately at "
-    "https://trade.mudrex.com (API keys section). Do not use this key anymore."
+    "⚠️ **Your API key is now exposed.** Please rotate or revoke it immediately in the "
+    "Mudrex API dashboard: https://www.mudrex.com/pro-trading/api-keys. Do not use this key anymore."
 )
 
 
